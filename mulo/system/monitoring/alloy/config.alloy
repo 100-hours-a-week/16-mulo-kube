@@ -1,0 +1,41 @@
+// 각 DaemonSet Pod는 자신과 같은 노드의 로그만 읽어 중복 수집을 피한다.
+discovery.kubernetes "pods" {
+  role = "pod"
+  selectors {
+    role = "pod"
+    field = "spec.nodeName=" + sys.env("NODE_NAME")
+  }
+}
+
+// 검색에 필요한 낮은 cardinality 라벨을 붙인다. 컨테이너 로그 본문은 그대로 보낸다.
+discovery.relabel "pods" {
+  targets = discovery.kubernetes.pods.targets
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label = "namespace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label = "pod"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label = "container"
+  }
+  rule {
+    target_label = "cluster"
+    replacement = {{ .Values.mulo.clusterName | quote }}
+  }
+}
+
+// Kubernetes pods/log API를 사용하므로 hostPath 로그 마운트가 필요 없다.
+loki.source.kubernetes "pods" {
+  targets = discovery.relabel.pods.output
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = {{ .Values.mulo.lokiPushUrl | quote }}
+  }
+}

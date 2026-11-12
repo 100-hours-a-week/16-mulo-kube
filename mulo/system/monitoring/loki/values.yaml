@@ -1,0 +1,88 @@
+# system 워커 1대의 초기 Loki 구성이다. WAL은 EBS, 장기 로그 데이터는 실제 S3 버킷에 저장한다.
+# 작은 초기 구성은 SingleBinary로 시작할 수 있다. 모드를 바꾸면 replicas도 함께 조정한다.
+deploymentMode: "SingleBinary"
+serviceAccount:
+  create: true
+  name: "loki"
+  # 아래 ARN은 Terraform의 예정 역할명과 맞췄다. 2026-11-11 AWS 조회 시 아직 미생성이므로 역할·OIDC·token 주입을 준비한 뒤 설치한다.
+  annotations:
+    # Loki용 S3 권한만 가진 IAM 역할. 액세스 키를 values에 쓰지 않는다.
+    eks.amazonaws.com/role-arn: "arn:aws:iam::840255883218:role/mulo-v3-prod-loki"
+loki:
+  # 단일 tenant 내부 구성에서 false를 선택할 수 있다. 외부 공개 접근은 별도 인증이 필요하다.
+  auth_enabled: false
+  commonConfig:
+    # SingleBinary replica 1로 검증하면 1. HA 복제 수는 실제 인스턴스 수와 맞춘다.
+    replication_factor: 1
+  storage:
+    type: "s3"
+    # Terraform이 만든 실제 Loki 버킷 하나를 사용한다. ruler/admin은 현재 별도 기능을 활성화하지 않는다.
+    bucketNames:
+      chunks: "mulo-v3-prod-840255883218-loki"
+      ruler: "mulo-v3-prod-840255883218-loki"
+      admin: "mulo-v3-prod-840255883218-loki"
+    s3:
+      region: "ap-northeast-2"
+  # 새 설치 기준으로 과거 시작일을 정했다. 기존 Loki 데이터가 있다면 그 스키마와 먼저 대조한다.
+  schemaConfig:
+    configs:
+      -
+        from: "2026-11-01"
+        store: "tsdb"
+        object_store: "s3"
+        schema: "v13"
+        index:
+          prefix: "index_"
+          period: "24h"
+  ingester:
+    wal:
+      enabled: true
+singleBinary:
+  replicas: 1
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "700m"
+      memory: "1Gi"
+  persistence:
+    enabled: true
+    storageClass: "gp3"
+    size: "10Gi"
+# SingleBinary를 선택하면 read/write/backend는 0으로 설정한다.
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+# 초기 구성을 단순하게 유지할지 결정한다. 각 true는 추가 Pod/자원을 사용한다.
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+gateway:
+  enabled: false
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+networkPolicy:
+  enabled: false

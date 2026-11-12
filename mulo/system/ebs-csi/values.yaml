@@ -1,0 +1,38 @@
+# kube-system에 설치한다. 단일 system 워커 초기 구성으로 controller는 1개다.
+# kubeadm에는 EBS CSI가 기본 설치되지 않는다. IAM 권한/OIDC 연동을 먼저 준비한다.
+controller:
+  region: "ap-northeast-2"
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: "ebs-csi-controller-sa"
+    # 아래 ARN은 Terraform의 예정 역할명과 맞췄다. 2026-11-11 AWS 조회 시 아직 미생성이므로 역할·OIDC·token 주입을 준비한 뒤 설치한다.
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::840255883218:role/mulo-v3-prod-ebs_csi"
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+# Linux 노드 전체에 CSI 플러그인을 배치한다. controller만 system에 제한한다.
+node:
+  # 노드 플러그인은 EBS를 사용할 모든 노드에 있어야 한다. system에만 제한하지 않는다.
+  tolerateAllTaints: true
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "40Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  enableWindows: false

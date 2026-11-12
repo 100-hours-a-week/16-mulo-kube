@@ -1,0 +1,41 @@
+# KEDA operator 설치값이다. AI 앱의 큐 스케일링은 비활성 상태를 유지한다.
+# 큐 길이 등 이벤트로 워커를 확장한다. 앱의 HPA와 중복 제어하지 않는다.
+operator:
+  replicaCount: 1
+metricsServer:
+  replicaCount: 1
+webhooks:
+  replicaCount: 1
+# 세 controller가 기본으로 공유할 system 노드 배치.
+nodeSelector:
+  workload: "system"
+tolerations:
+  -
+    key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+resources:
+  operator:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+  metricServer:
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  webhooks:
+    requests:
+      cpu: "25m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+networkPolicy:
+  enabled: false

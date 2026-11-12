@@ -1,0 +1,35 @@
+# Host 헤더가 앱 도메인이 아닌 ALB 헬스체크에도 Envoy가 직접 응답한다.
+# 앱 건강 상태는 각 Deployment의 readinessProbe가 따로 관리한다.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: {{ .Values.gatewayName }}-health
+  namespace: {{ .Values.namespace }}
+spec:
+  directResponse:
+    statusCode: 200
+    contentType: text/plain
+    body:
+      type: Inline
+      inline: "ok"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.gatewayName }}-health
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gatewayName }}
+      sectionName: {{ .Values.listener.name }}
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: {{ .Values.health.path }}
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: {{ .Values.gatewayName }}-health

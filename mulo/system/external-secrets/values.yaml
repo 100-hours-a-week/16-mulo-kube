@@ -1,0 +1,43 @@
+# ESO controller 설치용이다. Vault 서버 설치와 TLS/Kubernetes auth 설정은 별도 작업이다.
+# 이것은 ESO operator용 값이다. Vault 연결은 store/ 로컬 차트에서 따로 관리한다.
+installCRDs: true
+replicaCount: 1
+global:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+serviceAccount:
+  create: true
+  name: "external-secrets"
+webhook:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+certController:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+resources:
+  requests:
+    cpu: "25m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+networkPolicy:
+  enabled: false

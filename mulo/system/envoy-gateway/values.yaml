@@ -1,0 +1,34 @@
+# Envoy Gateway controller는 envoy-gateway-system에, 데이터 플레인 Gateway는 edge에 설치한다.
+# Envoy Gateway controller 설치용이다. 데이터 플레인/NodePort는 system/gateway/chart에서 관리한다.
+crds:
+  enabled: true
+deployment:
+  replicas: 1
+  pod:
+    nodeSelector:
+      workload: "system"
+    tolerations:
+      -
+        key: "dedicated"
+        operator: "Equal"
+        value: "system"
+        effect: "NoSchedule"
+    priorityClassName: "mulo-system"
+  envoyGateway:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "300m"
+        memory: "512Mi"
+# 인증서 생성 Job도 system 노드에 배치한다.
+certgen:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"

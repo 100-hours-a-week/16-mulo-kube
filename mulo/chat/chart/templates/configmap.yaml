@@ -1,0 +1,24 @@
+# 비밀이 아닌 환경변수만 담는다. 비밀번호와 토큰은 여기에 넣지 않는다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configMap.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+data:
+  TZ: "{{ .Values.configMap.data.TZ }}"
+  SPRING_PROFILES_ACTIVE: "{{ .Values.configMap.data.SPRING_PROFILES_ACTIVE }}"
+  CHAT_DB_URL: "{{ .Values.configMap.data.CHAT_DB_URL }}"
+  CHAT_DB_USERNAME: "{{ .Values.configMap.data.CHAT_DB_USERNAME }}"
+  CHAT_WS_ALLOWED_ORIGINS: "{{ .Values.configMap.data.CHAT_WS_ALLOWED_ORIGINS }}"
+  CHAT_BACKEND_URL: "{{ .Values.configMap.data.CHAT_BACKEND_URL }}"
+  CHAT_MODERATION_AI_BASE_URL: "{{ .Values.configMap.data.CHAT_MODERATION_AI_BASE_URL }}"
+  CHAT_DELIVERY_ENABLED: "{{ .Values.configMap.data.CHAT_DELIVERY_ENABLED }}"
+  CHAT_REDIS_HOST: "{{ .Values.configMap.data.CHAT_REDIS_HOST }}"
+  CHAT_REDIS_PORT: "{{ .Values.configMap.data.CHAT_REDIS_PORT }}"
+  CHAT_REDIS_TLS: "{{ .Values.configMap.data.CHAT_REDIS_TLS }}"
+  CHAT_REDIS_USERNAME: "{{ .Values.configMap.data.CHAT_REDIS_USERNAME }}"
+  CHAT_REDIS_PASSWORD: "{{ .Values.configMap.data.CHAT_REDIS_PASSWORD }}"
+  CHAT_DELIVERY_ENVIRONMENT: "{{ .Values.configMap.data.CHAT_DELIVERY_ENVIRONMENT }}"
+  CHAT_DEPLOYMENT_ENVIRONMENT: "{{ .Values.configMap.data.CHAT_DEPLOYMENT_ENVIRONMENT }}"

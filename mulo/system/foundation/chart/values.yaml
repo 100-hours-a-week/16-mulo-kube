@@ -1,0 +1,63 @@
+# namespace 12개는 templates/namespace.yaml에 직접 적었다. kube-system과 Calico namespace는 기존 관리 범위를 유지한다.
+# PriorityClass는 클러스터 공통 리소스다. Pod에서 priorityClassName으로 선택한다.
+# preemptionPolicy는 Never 또는 PreemptLowerPriority.
+priorityClasses:
+  system:
+    name: "mulo-system"
+    value: 100000
+    description: "배포·시크릿·관측 controller 우선순위"
+    preemptionPolicy: "PreemptLowerPriority"
+  edge:
+    name: "mulo-edge"
+    value: 90000
+    description: "외부 요청 진입점 Envoy 우선순위"
+    preemptionPolicy: "PreemptLowerPriority"
+# Redis·Vault·Prometheus·Loki의 PVC에 사용한다. EBS CSI와 IRSA를 먼저 정상화해야 실제 볼륨이 붙는다.
+storageClass:
+  name: "gp3"
+  # Retain 또는 Delete. 삭제 정책을 의도적으로 선택한다.
+  reclaimPolicy: "Retain"
+  # EBS 볼륨 종류와 암호화 여부, 파일시스템. 비밀 값은 넣지 않는다.
+  type: "gp3"
+  encrypted: "true"
+  fsType: "ext4"
+  # EBS 볼륨 크기 확장을 허용할지 true/false.
+  allowVolumeExpansion: true
+# 앱 namespace에만 자원 상한을 둔다. 플랫폼 namespace에는 두지 않는다.
+resourceQuotas:
+  frontend:
+    namespace: "frontend"
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+    pods: "10"
+  backend:
+    namespace: "backend"
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+    pods: "10"
+  chat:
+    namespace: "chat"
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+    pods: "10"
+  aiApi:
+    namespace: "ai-api"
+    requests:
+      cpu: "3"
+      memory: "10Gi"
+    limits:
+      cpu: "6"
+      memory: "14Gi"
+    pods: "10"

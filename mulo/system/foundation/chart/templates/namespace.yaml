@@ -1,0 +1,129 @@
+# 서비스와 플랫폼의 자원·권한·네트워크 경계를 나누는 namespace 12개.
+# mulo.io/gateway-access가 true인 namespace만 Gateway 경로를 받을 수 있다.
+
+---
+# 프론트엔드
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "general"
+    mulo.io/gateway-access: "true"
+
+---
+# 백엔드 API
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "general"
+    mulo.io/gateway-access: "true"
+
+---
+# 채팅 서버
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chat
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "chat"
+    mulo.io/gateway-access: "true"
+
+---
+# AI API
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-api
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "ai"
+
+
+---
+# Redis
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"
+
+---
+# Gateway와 Envoy 데이터 플레인
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edge
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "general"
+    mulo.io/gateway-access: "true"
+
+---
+# Envoy Gateway controller
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envoy-gateway-system
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"
+
+---
+# Argo CD
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"
+    mulo.io/gateway-access: "true"
+
+---
+# External Secrets Operator
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"
+
+---
+# KEDA
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keda
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"
+
+---
+# Prometheus, Grafana, Loki
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"
+    mulo.io/gateway-access: "true"
+
+---
+# Vault
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+  labels:
+    app.kubernetes.io/part-of: "mulo"
+    mulo.io/workload-group: "system"

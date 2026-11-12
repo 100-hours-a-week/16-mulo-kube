@@ -1,0 +1,18 @@
+# 서비스별 HTTPRoute가 붙는 공통 HTTP 진입점. 모든 namespace를 자동 허용하지 않는다.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gatewayName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  gatewayClassName: {{ .Values.className }}
+  listeners:
+    - name: {{ .Values.listener.name }}
+      port: {{ .Values.listener.port }}
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              mulo.io/gateway-access: "{{ .Values.gatewayAccessLabel }}"

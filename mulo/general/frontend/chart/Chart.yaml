@@ -1,0 +1,5 @@
+# 독립적으로 설치·업데이트하는 애플리케이션 차트.
+apiVersion: v2
+name: frontend
+type: application
+version: 0.1.0

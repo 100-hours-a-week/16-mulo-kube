@@ -1,0 +1,19 @@
+# 필요한 Pod에서 priorityClassName으로 선택한다.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.system.name }}
+value: {{ .Values.priorityClasses.system.value }}
+globalDefault: false
+description: "{{ .Values.priorityClasses.system.description }}"
+preemptionPolicy: {{ .Values.priorityClasses.system.preemptionPolicy }}
+---
+# 필요한 Pod에서 priorityClassName으로 선택한다.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.edge.name }}
+value: {{ .Values.priorityClasses.edge.value }}
+globalDefault: false
+description: "{{ .Values.priorityClasses.edge.description }}"
+preemptionPolicy: {{ .Values.priorityClasses.edge.preemptionPolicy }}

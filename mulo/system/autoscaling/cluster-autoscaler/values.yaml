@@ -1,0 +1,45 @@
+# IAM/OIDC와 join bootstrap을 준비한 뒤 설치한다. 리소스·태그 이름은 현재 Terraform 구성과 맞췄다.
+# kubernetes-autoscaler/cluster-autoscaler 차트. ASG를 발견해 노드 수를 조절한다.
+cloudProvider: "aws"
+awsRegion: "ap-northeast-2"
+autoDiscovery:
+  # Terraform의 k8s.io/cluster-autoscaler/<클러스터명> 태그와 정확히 같아야 한다.
+  clusterName: "mulo-v3-prod"
+image:
+  # kubectl get nodes로 확인한 Kubernetes v1.36.6과 같은 1.36 minor를 사용한다.
+  # Autoscaler의 patch 번호는 Kubernetes의 patch 번호와 별도로 배포된다.
+  tag: "v1.36.0"
+replicaCount: 1
+rbac:
+  serviceAccount:
+    create: true
+    name: "cluster-autoscaler"
+    # 아래 ARN은 Terraform의 예정 역할명과 맞췄다. 2026-11-11 AWS 조회 시 아직 미생성이므로 역할·OIDC·token 주입을 준비한 뒤 설치한다.
+    annotations:
+      # kubeadm에서는 OIDC issuer/JWKS 및 IAM trust가 별도로 준비돼 있어야 한다.
+      eks.amazonaws.com/role-arn: "arn:aws:iam::840255883218:role/mulo-v3-prod-autoscaler"
+# 구축 중 자동 축소를 끈다. 현재 Terraform ASG max=desired=1이므로 이 설정만으로 증설되지 않는다.
+# ASG node-template 태그와 실제 workload 라벨·taint를 맞춘 뒤 자동 확장을 운영한다.
+extraArgs:
+  balance-similar-node-groups: "true"
+  skip-nodes-with-local-storage: "false"
+  scale-down-enabled: "false"
+# Controller는 workload=system 노드에 배치한다.
+nodeSelector:
+  workload: "system"
+# dedicated=system:NoSchedule를 허용하는 toleration 목록을 입력한다.
+# 항목: {key: dedicated, operator: Equal, value: system, effect: NoSchedule}
+tolerations:
+  -
+    key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+# CPU/메모리 requests·limits를 실제 노드 용량에 맞춘다.
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "300m"
+    memory: "512Mi"

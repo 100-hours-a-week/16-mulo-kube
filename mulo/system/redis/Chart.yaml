@@ -1,0 +1,5 @@
+# 공통 서비스용 로컬 Helm 차트.
+apiVersion: v2
+name: redis-cache
+type: application
+version: 0.1.0

@@ -1,0 +1,100 @@
+# Vault는 별도 EC2가 아니라 system 워커의 Pod로 운영한다.
+# 초기 구성은 TLS + Raft PVC 5Gi + 수동 unseal이다. root token과 unseal key는 값 파일에 넣지 않는다.
+global:
+  enabled: true
+  tlsDisable: false
+injector:
+  enabled: false
+csi:
+  enabled: false
+server:
+  enabled: true
+  # 공식 Helm chart 0.34.1에서 검증한 Vault 2.0.4를 고정한다.
+  image:
+    repository: "hashicorp/vault"
+    tag: "2.0.4"
+    pullPolicy: "IfNotPresent"
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+  priorityClassName: "mulo-system"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  networkPolicy:
+    enabled: false
+  authDelegator:
+    enabled: true
+  serviceAccount:
+    create: true
+    name: "vault"
+  extraEnvironmentVars:
+    VAULT_CACERT: "/vault/userconfig/vault-server-tls/ca.crt"
+  # 설치 전 vault namespace에 vault-server-tls Secret(tls.crt/tls.key/ca.crt)을 준비한다. 인증서·개인키는 Git에 넣지 않는다.
+  volumes:
+    -
+      name: "vault-tls"
+      secret:
+        secretName: "vault-server-tls"
+        defaultMode: 288
+  volumeMounts:
+    -
+      name: "vault-tls"
+      mountPath: "/vault/userconfig/vault-server-tls"
+      readOnly: true
+  dev:
+    enabled: false
+  standalone:
+    enabled: false
+  # Raft 저장소를 쓰는 차트 모드다. replicas=1이므로 현재 고가용성을 제공하지 않는다.
+  ha:
+    enabled: true
+    replicas: 1
+    apiAddr: "https://vault.vault.svc.cluster.local:8200"
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        disable_mlock = true
+        
+        listener "tcp" {
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_cert_file = "/vault/userconfig/vault-server-tls/tls.crt"
+          tls_key_file = "/vault/userconfig/vault-server-tls/tls.key"
+        }
+        
+        storage "raft" {
+          path = "/vault/data"
+        }
+        
+        service_registration "kubernetes" {}
+    disruptionBudget:
+      enabled: false
+  # EBS CSI의 IAM/OIDC를 먼저 준비한다. PVC를 지우면 저장한 시크릿을 잃을 수 있다.
+  dataStorage:
+    enabled: true
+    size: "5Gi"
+    storageClass: "gp3"
+    accessMode: "ReadWriteOnce"
+    mountPath: "/vault/data"
+  auditStorage:
+    enabled: false
+  # 최초 초기화·수동 unseal 전에는 Ready가 아니다. 최초 Helm 설치에서는 --wait를 사용하지 않는다.
+  readinessProbe:
+    enabled: true
+  livenessProbe:
+    enabled: false
+# 별도 공개 UI Service는 만들지 않는다. 관리자는 vault Service의 8200 포트로 터널 접속한다.
+ui:
+  enabled: false

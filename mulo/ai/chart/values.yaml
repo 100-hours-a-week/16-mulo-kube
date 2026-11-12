@@ -1,0 +1,128 @@
+# 초기 구축용 고정 구성이다. Helm --namespace도 이 값과 같게 지정한다.
+# 앱 이미지는 ECR에 게시된 태그로 지정하며, 비밀 값은 Git에 넣지 않는다.
+namespace: "ai-api"
+app:
+  # 리소스 이름과 Pod의 app 라벨이다. Service selector도 같은 값을 참조한다.
+  name: "ai-api"
+# 초기 Pod 수다. 자동 확장 템플릿은 포함하지 않는다.
+replicaCount: 1
+# Ready가 된 뒤 안정 상태로 인정할 때까지의 시간(초, 0 이상).
+minReadySeconds: 5
+# 롤백에 남겨 둘 ReplicaSet 수(정수).
+revisionHistoryLimit: 3
+strategy:
+  # 추가 Pod 허용 수/비율. 숫자 또는 "25%" 같은 문자열.
+  maxSurge: 1
+  # 배포 중 사용 불가 Pod 허용 수/비율. maxSurge와 둘 다 0일 수 없다.
+  maxUnavailable: 0
+image:
+  # ECR 등 실제 이미지 저장소 URI. 태그를 포함하지 않는다.
+  repository: "840255883218.dkr.ecr.ap-northeast-2.amazonaws.com/mulo-v3-prod/ai"
+  # ECR에 존재하는 배포 이미지 태그다.
+  tag: "1.11.0"
+  # Always / IfNotPresent / Never 중 선택.
+  pullPolicy: "IfNotPresent"
+service:
+  # ClusterIP Service 이름이다. HTTPRoute가 이 Service로 전달한다.
+  name: "ai-api"
+  # 서비스가 수신하는 포트와 컨테이너가 실제 수신하는 포트(1~65535).
+  port: 80
+  targetPort: 8000
+  # HTTPRoute·메트릭 설정에서 식별할 포트 이름.
+  portName: "http"
+configMap:
+  # backend 원본 Deployment도 이 이름으로 ConfigMap을 참조한다.
+  name: "ai-api-config"
+  # AI main의 launcher는 한 이미지에서 Gateway·모더레이션·임베딩·Worker를 실행한다. 임의로 여러 Deployment로 나누지 않는다.
+  # 앱 배포 단계에서 실제 LLM provider·RunPod 주소·선택 API 키를 AI 팀 설정과 맞춘다. 현재는 이미지를 배포하지 않는다.
+  data:
+    TZ: "Asia/Seoul"
+    APP_ENV: "prod"
+    AI_CLIENT_MODE: "real"
+    GATEWAY_PORT: "8000"
+    MODERATION_PORT: "8001"
+    EMBEDDING_PORT: "8002"
+    RUN_WORKER: "true"
+resources:
+  requests:
+    # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.
+    cpu: "1"
+    memory: "3500Mi"
+  limits:
+    cpu: "2"
+    memory: "6Gi"
+# 실제 앱 소스에서 확인한 포트와 헬스체크 경로다.
+probes:
+  startup:
+    # 실제 앱에서 응답하는 기동 확인 경로와 포트.
+    path: "/health"
+    port: 8000
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 60
+  liveness:
+    # 프로세스 복구가 필요한 상황만 실패시키는 생존 확인 경로.
+    path: "/health"
+    port: 8000
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3
+  readiness:
+    # 트래픽을 받을 수 있는지 판단하는 준비 확인 경로.
+    path: "/health"
+    port: 8000
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3
+serviceAccount:
+  name: "ai-api"
+  # Kubernetes API 토큰이 필요한 앱만 true. 일반 앱은 false.
+  automountServiceAccountToken: false
+# Pod 종료 전 유예 시간(초).
+terminationGracePeriodSeconds: 30
+securityContext:
+  allowPrivilegeEscalation: false
+  # Pod에서 제거할 리눅스 권한. ALL이면 전부 제거한다.
+  dropCapability: "ALL"
+# Vault 경로/필드와 앱이 읽는 환경변수 이름을 함께 맞춘다.
+externalSecrets:
+  # ESO 동기화 주기 문자열. 예: "1h".
+  refreshInterval: "1h"
+  storeRef:
+    name: "mulo-vault"
+    # ClusterSecretStore 또는 SecretStore.
+    kind: "ClusterSecretStore"
+  # 생성할 Kubernetes Secret 이름이다. Deployment가 이 값을 직접 참조한다.
+  targetName: "ai-api-secrets"
+  # 서비스 사이에서 같은 값을 써야 하는 인증 토큰은 shared/service-auth의 같은 필드를 참조한다. 비밀 본문은 Git에 저장하지 않는다.
+  data:
+    databaseUrl:
+      secretKey: "DATABASE_URL"
+      remoteRef:
+        key: "mulo/prod/apps/ai"
+        property: "database_url"
+    internalToken:
+      secretKey: "INTERNAL_TOKEN"
+      remoteRef:
+        key: "mulo/prod/shared/service-auth"
+        property: "ai_internal_token"
+    anthropicApiKey:
+      secretKey: "ANTHROPIC_API_KEY"
+      remoteRef:
+        key: "mulo/prod/apps/ai"
+        property: "anthropic_api_key"
+    replicateApiToken:
+      secretKey: "REPLICATE_API_TOKEN"
+      remoteRef:
+        key: "mulo/prod/apps/ai"
+        property: "replicate_api_token"
+# 노드의 workload 라벨과 일치시킨다.
+nodeSelector:
+  workload: "ai"
+# 해당 워커 그룹의 dedicated taint를 허용한다.
+toleration:
+  key: "dedicated"
+  operator: "Equal"
+  value: "ai"
+  effect: "NoSchedule"

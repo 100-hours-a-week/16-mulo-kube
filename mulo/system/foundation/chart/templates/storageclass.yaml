@@ -1,0 +1,13 @@
+# Pod가 배치될 AZ가 정해진 후 EBS 볼륨을 만든다.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.name }}
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: {{ .Values.storageClass.reclaimPolicy }}
+allowVolumeExpansion: {{ .Values.storageClass.allowVolumeExpansion }}
+parameters:
+  type: {{ .Values.storageClass.type }}
+  encrypted: "{{ .Values.storageClass.encrypted }}"
+  csi.storage.k8s.io/fstype: {{ .Values.storageClass.fsType }}

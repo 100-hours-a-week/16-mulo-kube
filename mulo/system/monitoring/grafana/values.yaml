@@ -1,0 +1,98 @@
+# release 이름 prometheus/loki, namespace monitoring을 기준으로 데이터소스를 연결했다.
+# 관리자 비밀번호는 기존 Secret 또는 Vault/ESO로 준비한다.
+replicas: 1
+# Vault mulo/prod/platform/grafana의 admin_user/admin_password를 Store 차트가 이 Secret으로 동기화한다.
+admin:
+  existingSecret: "grafana-admin"
+  userKey: "admin-user"
+  passwordKey: "admin-password"
+service:
+  type: "ClusterIP"
+# 초기에는 데이터소스를 values로 관리하고 PVC를 만들지 않는다. UI에서만 만든 대시보드는 재시작 후 사라질 수 있다.
+persistence:
+  # 대시보드를 Git/ConfigMap으로 관리하면 비활성화할 수 있다.
+  enabled: false
+  storageClassName: "gp3"
+  size: "2Gi"
+# 데이터소스 설정 형식:
+# datasources.yaml:
+# apiVersion: 1
+# datasources:
+# - name:
+# type:                    # prometheus 또는 loki
+# url:                     # 클러스터 내부 Service URL
+# access: proxy
+# isDefault:
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      -
+        name: "Prometheus"
+        uid: "prometheus"
+        type: "prometheus"
+        url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+        access: "proxy"
+        isDefault: true
+        editable: false
+      -
+        name: "Loki"
+        uid: "loki"
+        type: "loki"
+        url: "http://loki.monitoring.svc.cluster.local:3100"
+        access: "proxy"
+        isDefault: false
+        editable: false
+# Controller는 workload=system 노드에 배치한다.
+nodeSelector:
+  workload: "system"
+# dedicated=system:NoSchedule를 허용하는 toleration 목록을 입력한다.
+# 항목: {key: dedicated, operator: Equal, value: system, effect: NoSchedule}
+tolerations:
+  -
+    key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+# CPU/메모리 requests·limits를 실제 노드 용량에 맞춘다.
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "300m"
+    memory: "384Mi"
+networkPolicy:
+  enabled: false
+grafana.ini:
+  server:
+    domain: "grafana.mulostudio.p-e.kr"
+    root_url: "https://grafana.mulostudio.p-e.kr"
+    serve_from_sub_path: false
+  security:
+    cookie_secure: true
+    cookie_samesite: "lax"
+  auth.anonymous:
+    enabled: false
+# 공식 차트의 HTTPRoute를 사용한다. 사용자 선택에 따라 HTTPS 도메인으로 접속하며 별도 접근 정책은 나중에 관리한다.
+route:
+  main:
+    enabled: true
+    apiVersion: "gateway.networking.k8s.io/v1"
+    kind: "HTTPRoute"
+    labels: {}
+    hostnames:
+      - "grafana.mulostudio.p-e.kr"
+    parentRefs:
+      -
+        name: "mulo-gateway"
+        namespace: "edge"
+        sectionName: "http"
+    matches:
+      -
+        path:
+          type: "PathPrefix"
+          value: "/"
+    filters: []
+    httpsRedirect: false
+    additionalRules: []

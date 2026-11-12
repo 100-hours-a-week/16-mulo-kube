@@ -1,0 +1,32 @@
+# CPU·메모리 metrics API용이다. HPA를 켜기 전 kubectl top nodes로 동작을 확인한다.
+# CPU/메모리 HPA가 사용하는 metrics.k8s.io API를 제공한다.
+replicas: 1
+# kubelet 주소/CA 관련 추가 인자. TLS 검증을 끄는 인자는 자동 추가하지 않는다.
+args:
+  - "--kubelet-preferred-address-types=InternalIP,Hostname"
+# 공식 차트 기본값대로 aggregation 구간의 자체 서빙 인증서를 허용한다. caBundle을 구성하면 검증을 켠다.
+# kubelet TLS 검증을 끄는 인자는 넣지 않았다. kubeadm kubelet 서빙 인증서·CA 신뢰를 별도로 준비한다.
+apiService:
+  create: true
+  # Metrics Server의 서빙 인증서와 API aggregation 신뢰 설정에 맞춰 결정한다.
+  insecureSkipTLSVerify: true
+  caBundle: ""
+# Controller는 workload=system 노드에 배치한다.
+nodeSelector:
+  workload: "system"
+# dedicated=system:NoSchedule를 허용하는 toleration 목록을 입력한다.
+# 항목: {key: dedicated, operator: Equal, value: system, effect: NoSchedule}
+tolerations:
+  -
+    key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+# CPU/메모리 requests·limits를 실제 노드 용량에 맞춘다.
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"

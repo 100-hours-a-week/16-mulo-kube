@@ -1,0 +1,53 @@
+# 앱 namespace에 자원 상한을 둔다.
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: {{ .Values.resourceQuotas.frontend.namespace }}
+spec:
+  hard:
+    requests.cpu: "{{ .Values.resourceQuotas.frontend.requests.cpu }}"
+    requests.memory: "{{ .Values.resourceQuotas.frontend.requests.memory }}"
+    limits.cpu: "{{ .Values.resourceQuotas.frontend.limits.cpu }}"
+    limits.memory: "{{ .Values.resourceQuotas.frontend.limits.memory }}"
+    pods: "{{ .Values.resourceQuotas.frontend.pods }}"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: {{ .Values.resourceQuotas.backend.namespace }}
+spec:
+  hard:
+    requests.cpu: "{{ .Values.resourceQuotas.backend.requests.cpu }}"
+    requests.memory: "{{ .Values.resourceQuotas.backend.requests.memory }}"
+    limits.cpu: "{{ .Values.resourceQuotas.backend.limits.cpu }}"
+    limits.memory: "{{ .Values.resourceQuotas.backend.limits.memory }}"
+    pods: "{{ .Values.resourceQuotas.backend.pods }}"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: {{ .Values.resourceQuotas.chat.namespace }}
+spec:
+  hard:
+    requests.cpu: "{{ .Values.resourceQuotas.chat.requests.cpu }}"
+    requests.memory: "{{ .Values.resourceQuotas.chat.requests.memory }}"
+    limits.cpu: "{{ .Values.resourceQuotas.chat.limits.cpu }}"
+    limits.memory: "{{ .Values.resourceQuotas.chat.limits.memory }}"
+    pods: "{{ .Values.resourceQuotas.chat.pods }}"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: {{ .Values.resourceQuotas.aiApi.namespace }}
+spec:
+  hard:
+    requests.cpu: "{{ .Values.resourceQuotas.aiApi.requests.cpu }}"
+    requests.memory: "{{ .Values.resourceQuotas.aiApi.requests.memory }}"
+    limits.cpu: "{{ .Values.resourceQuotas.aiApi.limits.cpu }}"
+    limits.memory: "{{ .Values.resourceQuotas.aiApi.limits.memory }}"
+    pods: "{{ .Values.resourceQuotas.aiApi.pods }}"

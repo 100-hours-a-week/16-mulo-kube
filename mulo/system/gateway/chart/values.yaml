@@ -1,0 +1,32 @@
+# ALB의 실제 target group 포트 30080과 health 경로를 Terraform state에서 확인했다.
+# Envoy 데이터 플레인과 Gateway 리소스를 둘 namespace. --namespace와 맞춘다.
+namespace: "edge"
+# GatewayClass는 클러스터 전체 이름, 나머지는 위 namespace 안의 이름이다.
+className: "mulo-envoy"
+gatewayName: "mulo-gateway"
+proxyName: "mulo-envoy-proxy"
+listener:
+  name: "http"
+  # ALB 뒤 내부 HTTP listener 포트. HTTPS 종료는 ALB에서 수행할 수 있다.
+  port: 80
+# mulo.io/gateway-access 라벨이 이 값인 namespace의 HTTPRoute만 연결한다.
+# foundation의 namespace.yaml 라벨과 같은 값이어야 한다.
+gatewayAccessLabel: "true"
+envoy:
+  # 현재 general 워커가 1대이므로 1개로 시작한다. 노드 증설 후 설계의 다중 Pod/AZ 구성을 적용한다.
+  replicas: 1
+  # Terraform의 config.envoy_node_port와 동일한 NodePort(30000~32767).
+  nodePort: 30080
+  # 선택한 PriorityClass 이름. foundation에 먼저 정의한다.
+  priorityClassName: "mulo-edge"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+# ALB가 Host 헤더 없이 확인할 헬스체크 경로다. 항상 생성한다.
+health:
+  # Terraform의 envoy_health_path와 같은 경로. ALB 헬스체크는 도메인 Host를 보내지 않는다.
+  path: "/healthz"

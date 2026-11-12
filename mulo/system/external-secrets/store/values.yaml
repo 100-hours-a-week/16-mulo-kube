@@ -1,0 +1,51 @@
+# vault/vault 서버와 연결한다. KV mount secret, Kubernetes auth kubernetes, role mulo-prod-eso를 서버에도 구성한다.
+# Vault 주소 외 이름·경로는 이 프로젝트에서 사용할 규칙으로 채웠다. Vault에도 동일하게 생성해야 한다.
+# ESO operator와 인증용 ServiceAccount를 둘 namespace.
+namespace: "external-secrets"
+storeName: "mulo-vault"
+# 이 Store를 참조할 수 있는 서비스 namespace 목록. 전체 namespace를 열지 않는다.
+allowedNamespaces:
+  frontend: "frontend"
+  backend: "backend"
+  chat: "chat"
+  aiApi: "ai-api"
+  redis: "redis"
+  monitoring: "monitoring"
+  argocd: "argocd"
+serviceAccountName: "vault-auth"
+vault:
+  # 클러스터 내부 Vault Service 주소다. caProvider의 vault-ca Secret에는 같은 서버의 신뢰 CA를 넣는다.
+  server: "https://vault.vault.svc.cluster.local:8200"
+  # KV 엔진 mount 경로와 버전(v1/v2).
+  path: "secret"
+  version: "v2"
+  # external-secrets/vault-auth를 이 Vault 역할에 바인딩한다. 역할의 audience는 vault로 맞춘다.
+  kubernetes:
+    # Vault에서 미리 활성화한 Kubernetes 인증 경로와 역할.
+    mountPath: "kubernetes"
+    role: "mulo-prod-eso"
+    # Vault Kubernetes 인증 역할의 audience와 일치하는 값.
+    audience: "vault"
+  caProvider:
+    # Vault의 신뢰할 CA 인증서를 저장한 기존 Secret 이름/키/namespace.
+    name: "vault-ca"
+    key: "ca.crt"
+    namespace: "external-secrets"
+# Grafana admin 계정을 Vault에서 동기화한다. 값 자체는 Git에 저장하지 않는다.
+grafanaAdmin:
+  name: "grafana-admin"
+  # allowedNamespaces에 포함된 대상 namespace.
+  namespace: "monitoring"
+  refreshInterval: "1h"
+  # Grafana admin.existingSecret 등에서 참조할 Secret 이름.
+  targetName: "grafana-admin"
+  user:
+    secretKey: "admin-user"
+    remoteRef:
+      key: "mulo/prod/platform/grafana"
+      property: "admin_user"
+  password:
+    secretKey: "admin-password"
+    remoteRef:
+      key: "mulo/prod/platform/grafana"
+      property: "admin_password"

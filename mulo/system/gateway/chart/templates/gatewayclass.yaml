@@ -1,0 +1,12 @@
+# Gateway API의 구현체를 Envoy Gateway 컨트롤러로 지정한다.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .Values.className }}
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: {{ .Values.proxyName }}
+    namespace: {{ .Values.namespace }}

@@ -1,0 +1,30 @@
+# 이 서비스의 호스트와 경로를 공통 Gateway에 연결한다.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httpRoute.parentRef.name }}
+      namespace: {{ .Values.httpRoute.parentRef.namespace }}
+      sectionName: {{ .Values.httpRoute.parentRef.sectionName }}
+  hostnames:
+    - {{ .Values.httpRoute.hostnames.primary }}
+    - {{ .Values.httpRoute.hostnames.secondary }}
+  rules:
+    - matches:
+        - path:
+            type: {{ .Values.httpRoute.paths.first.type }}
+            value: {{ .Values.httpRoute.paths.first.value }}
+        - path:
+            type: {{ .Values.httpRoute.paths.second.type }}
+            value: {{ .Values.httpRoute.paths.second.value }}
+      timeouts:
+        request: {{ .Values.httpRoute.timeouts.request }}
+        backendRequest: {{ .Values.httpRoute.timeouts.backendRequest }}
+      backendRefs:
+        - name: {{ .Values.service.name }}
+          port: {{ .Values.service.port }}

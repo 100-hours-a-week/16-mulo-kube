@@ -1,0 +1,5 @@
+# 클러스터 공통 구성용 로컬 차트.
+apiVersion: v2
+name: foundation
+type: application
+version: 0.1.0

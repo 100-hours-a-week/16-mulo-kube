@@ -1,0 +1,145 @@
+# monitoring namespace에 설치한다. Grafana는 별도 차트를 사용한다.
+# kube-prometheus-stack 차트. 별도 Grafana 차트와 중복 설치하지 않도록 enabled를 결정한다.
+grafana:
+  enabled: false
+prometheusOperator:
+  # 네트워크 정책은 Calico에서 별도로 관리한다.
+  networkPolicy:
+    enabled: false
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "300m"
+      memory: "512Mi"
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        workload: "system"
+      tolerations:
+        -
+          key: "dedicated"
+          operator: "Equal"
+          value: "system"
+          effect: "NoSchedule"
+prometheus:
+  networkPolicy:
+    enabled: false
+  prometheusSpec:
+    replicas: 1
+    # 초기 system 노드 용량을 고려해 3일/8GB로 제한했다. 수집량을 측정한 뒤 조정한다.
+    retention: "3d"
+    nodeSelector:
+      workload: "system"
+    tolerations:
+      -
+        key: "dedicated"
+        operator: "Equal"
+        value: "system"
+        effect: "NoSchedule"
+    resources:
+      requests:
+        cpu: "150m"
+        memory: "768Mi"
+      limits:
+        cpu: "700m"
+        memory: "1536Mi"
+    # ServiceMonitor를 release 라벨로 제한할지 결정한다.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "gp3"
+          accessModes:
+            - "ReadWriteOnce"
+          resources:
+            requests:
+              storage: "10Gi"
+    retentionSize: "8GB"
+    # 실제 HTTPS 접속에는 ALB의 인증서·443 리스너와 관리 도메인 DNS가 필요하다.
+    externalUrl: "https://prometheus.mulostudio.p-e.kr"
+    routePrefix: "/"
+  # 사용자가 접근 제어를 나중에 구성하기로 했다. 이 Route에는 인증·IP 제한을 추가하지 않는다.
+  route:
+    main:
+      enabled: true
+      apiVersion: "gateway.networking.k8s.io/v1"
+      kind: "HTTPRoute"
+      labels: {}
+      hostnames:
+        - "prometheus.mulostudio.p-e.kr"
+      parentRefs:
+        -
+          name: "mulo-gateway"
+          namespace: "edge"
+          sectionName: "http"
+      matches:
+        -
+          path:
+            type: "PathPrefix"
+            value: "/"
+      filters: []
+      httpsRedirect: false
+      additionalRules: []
+# 알림 수신처가 아직 없어 설치를 끈다. 수신 설정을 만든 뒤 켠다.
+alertmanager:
+  networkPolicy:
+    enabled: false
+  enabled: false
+  alertmanagerSpec:
+    nodeSelector:
+      workload: "system"
+    tolerations:
+      -
+        key: "dedicated"
+        operator: "Equal"
+        value: "system"
+        effect: "NoSchedule"
+    replicas: 1
+    resources:
+      requests:
+        cpu: "25m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+# kube-state-metrics는 controller이므로 system 노드에 둔다.
+kube-state-metrics:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+# node-exporter는 모든 노드의 메트릭을 수집한다. system으로만 제한하지 않는다.
+prometheus-node-exporter:
+  tolerations:
+    -
+      operator: "Exists"
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"

@@ -1,0 +1,95 @@
+# system 워커 m7i.large 1대 / Kubernetes 1.36.6의 초기 Argo CD 값이다.
+# argo/argo-cd 공식 차트의 override 값이다. 빈 값은 사용 전에 채운다.
+global:
+  # 네트워크 정책은 Calico 쪽에서 일괄 관리하므로 공식 차트의 기본 생성을 끈다.
+  networkPolicy:
+    create: false
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    -
+      key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+  priorityClassName: "mulo-system"
+configs:
+  cm:
+    # 사용자가 선택한 HTTPS 관리 도메인이다. 실제 접속에는 ALB 인증서·443 리스너·DNS가 먼저 필요하다.
+    url: "https://argocd.mulostudio.p-e.kr"
+  params:
+    # 외부 HTTPS는 ALB에서 종료하고 Envoy→Argo CD는 내부 HTTP로 연결한다. 외부 HTTP 공개를 의미하지 않는다.
+    server.insecure: true
+server:
+  replicas: 1
+  service:
+    type: "ClusterIP"
+    servicePortHttp: 80
+    servicePortHttps: 443
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  # 공식 차트가 HTTPRoute를 관리한다. Terraform의 platform_http_routes 출력은 별도로 중복 적용하지 않는다.
+  httproute:
+    enabled: true
+    labels: {}
+    parentRefs:
+      -
+        name: "mulo-gateway"
+        namespace: "edge"
+        sectionName: "http"
+    hostnames:
+      - "argocd.mulostudio.p-e.kr"
+    rules:
+      -
+        matches:
+          -
+            path:
+              type: "PathPrefix"
+              value: "/"
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "768Mi"
+repoServer:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+# 초기에는 일반 Application으로 동기화하므로 ApplicationSet controller는 0개로 둔다.
+applicationSet:
+  replicas: 0
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+redis:
+  # Argo CD 자체 캐시다. 앱용 system/redis와 구분한다.
+  enabled: true
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+dex:
+  enabled: false
+notifications:
+  enabled: false

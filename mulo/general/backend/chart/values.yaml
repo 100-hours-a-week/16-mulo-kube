@@ -1,0 +1,165 @@
+# 초기 구축용 고정 구성이다. Helm --namespace도 이 값과 같게 지정한다.
+# 앱 이미지는 ECR에 게시된 태그로 지정하며, 비밀 값은 Git에 넣지 않는다.
+namespace: "backend"
+app:
+  # 리소스 이름과 Pod의 app 라벨이다. Service selector도 같은 값을 참조한다.
+  name: "backend"
+# 초기 Pod 수다. 자동 확장 템플릿은 포함하지 않는다.
+replicaCount: 1
+# Ready가 된 뒤 안정 상태로 인정할 때까지의 시간(초, 0 이상).
+minReadySeconds: 5
+# 롤백에 남겨 둘 ReplicaSet 수(정수).
+revisionHistoryLimit: 3
+strategy:
+  # 추가 Pod 허용 수/비율. 숫자 또는 "25%" 같은 문자열.
+  maxSurge: 1
+  # 배포 중 사용 불가 Pod 허용 수/비율. maxSurge와 둘 다 0일 수 없다.
+  maxUnavailable: 0
+image:
+  # ECR 등 실제 이미지 저장소 URI. 태그를 포함하지 않는다.
+  repository: "840255883218.dkr.ecr.ap-northeast-2.amazonaws.com/mulo-v3-prod/backend"
+  # ECR에 존재하는 배포 이미지 태그다.
+  tag: "1.16.0"
+  # Always / IfNotPresent / Never 중 선택.
+  pullPolicy: "IfNotPresent"
+service:
+  # ClusterIP Service 이름이다. HTTPRoute가 이 Service로 전달한다.
+  name: "backend"
+  # 서비스가 수신하는 포트와 컨테이너가 실제 수신하는 포트(1~65535).
+  port: 80
+  targetPort: 8080
+  # HTTPRoute·메트릭 설정에서 식별할 포트 이름.
+  portName: "http"
+configMap:
+  # backend 원본 Deployment도 이 이름으로 ConfigMap을 참조한다.
+  name: "backend-config"
+  # BE main의 application.yaml 및 application-prod.yaml이 읽는 환경변수 이름이다.
+  # 현재 코드는 GCS SDK를 사용한다. 사용자는 S3 전환 후 배포하기로 했으므로 지원하지 않는 S3 환경변수는 임의로 추가하지 않는다.
+  data:
+    TZ: "Asia/Seoul"
+    SPRING_PROFILES_ACTIVE: "prod"
+    SERVER_PORT: "8080"
+    DB_URL: "jdbc:mysql://mulo-v3-prod-api.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo_be?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul"
+    DB_USERNAME: "mulo_admin"
+    REDIS_HOST: "redis.redis.svc.cluster.local"
+    REDIS_PORT: "6379"
+    MEMORY_SEARCH_CONVERSATION_STORE: "redis"
+    MEMORY_SEARCH_CONVERSATION_ENVIRONMENT: "prod"
+    # 음악 검색 요청 제한에 사용하는 Redis 키 접두사다. 비밀 값은 아니다.
+    MULO_MUSIC_SEARCH_RATE_LIMIT_NAMESPACE: "mulo:prod:music-search-rate-limit"
+    MULO_RABBITMQ_ENABLED: "false"
+    MULO_AI_DB_ENABLED: "false"
+    AI_BASE_URL: "http://ai-api.ai-api.svc.cluster.local:80"
+    AI_MOCK_ENABLED: "false"
+    CHAT_SERVER_BASE_URL: "http://chat.chat.svc.cluster.local:80"
+resources:
+  requests:
+    # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.
+    cpu: "300m"
+    memory: "768Mi"
+  limits:
+    cpu: "1"
+    memory: "1536Mi"
+# 실제 앱 소스에서 확인한 포트와 헬스체크 경로다.
+probes:
+  startup:
+    # 실제 앱에서 응답하는 기동 확인 경로와 포트.
+    path: "/actuator/health"
+    port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 60
+  liveness:
+    # 프로세스 복구가 필요한 상황만 실패시키는 생존 확인 경로.
+    path: "/actuator/health"
+    port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3
+  readiness:
+    # 트래픽을 받을 수 있는지 판단하는 준비 확인 경로.
+    path: "/actuator/health"
+    port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3
+# 기존 GCP URL map의 /api·/image 경로를 보존한다. 실제 앱 URI와 대조한다.
+httpRoute:
+  # 연결할 Gateway의 이름, namespace, listener 이름.
+  parentRef:
+    name: "mulo-gateway"
+    namespace: "edge"
+    sectionName: "http"
+  # 이 서비스가 소유한 실제 호스트 이름.
+  hostnames:
+    primary: "api.mulostudio.p-e.kr"
+    secondary: "mulostudio.p-e.kr"
+  # 이 서비스로 보낼 경로. type은 PathPrefix 또는 Exact.
+  paths:
+    first:
+      type: "PathPrefix"
+      value: "/api"
+    second:
+      type: "PathPrefix"
+      value: "/image"
+  # request/backendRequest 등의 duration. WebSocket은 실제 타임아웃 정책을 확인한다.
+  timeouts:
+    request: "60s"
+    backendRequest: "55s"
+
+# Vault의 비밀 값을 ESO가 backend-secrets로 동기화한다. 값 자체는 Git에 적지 않는다.
+externalSecrets:
+  refreshInterval: "1h"
+  storeRef:
+    name: "mulo-vault"
+    kind: "ClusterSecretStore"
+  # Deployment의 secretRef가 이 Secret 이름을 직접 참조한다.
+  targetName: "backend-secrets"
+  # 채팅·AI 인증 토큰은 상대 서비스와 같은 Vault 필드를 읽는다.
+  data:
+    dbPassword:
+      secretKey: "DB_PASSWORD"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "db_password"
+    jwtSecret:
+      secretKey: "JWT_SECRET"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "jwt_secret"
+    kakaoRestApiKey:
+      secretKey: "KAKAO_REST_API_KEY"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "kakao_rest_api_key"
+    kmaServiceKey:
+      secretKey: "KMA_SERVICE_KEY"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "kma_service_key"
+    spotifyClientId:
+      secretKey: "SPOTIFY_CLIENT_ID"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "spotify_client_id"
+    spotifyClientSecret:
+      secretKey: "SPOTIFY_CLIENT_SECRET"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "spotify_client_secret"
+    aiInternalToken:
+      secretKey: "AI_INTERNAL_TOKEN"
+      remoteRef:
+        key: "mulo/prod/shared/service-auth"
+        property: "ai_internal_token"
+    chatInternalApiKey:
+      secretKey: "CHAT_INTERNAL_API_KEY"
+      remoteRef:
+        key: "mulo/prod/shared/service-auth"
+        property: "chat_internal_api_key"
+    chatAuthVerifyApiKey:
+      secretKey: "CHAT_AUTH_VERIFY_API_KEY"
+      remoteRef:
+        key: "mulo/prod/shared/service-auth"
+        property: "chat_internal_api_key"

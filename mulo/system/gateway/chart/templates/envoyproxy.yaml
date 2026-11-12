@@ -1,0 +1,40 @@
+# AWS ALB → general 노드의 NodePort → Envoy → 각 앱의 ClusterIP 순서로 연결한다.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: {{ .Values.proxyName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: {{ .Values.envoy.replicas }}
+        pod:
+          nodeSelector:
+            workload: general
+          tolerations:
+            - key: dedicated
+              operator: Equal
+              value: general
+              effect: NoSchedule
+          priorityClassName: {{ .Values.envoy.priorityClassName }}
+        container:
+          resources:
+            requests:
+              cpu: {{ .Values.envoy.resources.requests.cpu }}
+              memory: {{ .Values.envoy.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.envoy.resources.limits.cpu }}
+              memory: {{ .Values.envoy.resources.limits.memory }}
+      envoyService:
+        type: NodePort
+        externalTrafficPolicy: Cluster
+        # Service의 port를 merge key로 사용해 자동 생성되는 targetPort는 보존한다.
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                - port: {{ .Values.listener.port }}
+                  nodePort: {{ .Values.envoy.nodePort }}
