@@ -1,14 +1,15 @@
 # kube-system에 설치한다. 단일 system 워커 초기 구성으로 controller는 1개다.
-# kubeadm에는 EBS CSI가 기본 설치되지 않는다. IAM 권한/OIDC 연동을 먼저 준비한다.
+# kubeadm에는 EBS CSI가 기본 설치되지 않는다.
+# 초기 인증은 system EC2 역할을 사용한다. Terraform IAM 정책과 system 노드의 IMDS hop limit=2를 먼저 적용한다.
+# AWS 액세스 키나 ECR 비밀번호를 이 파일에 넣지 않는다.
+awsAccessSecret: null
 controller:
   region: "ap-northeast-2"
   replicaCount: 1
   serviceAccount:
     create: true
     name: "ebs-csi-controller-sa"
-    # 아래 ARN은 Terraform의 예정 역할명과 맞췄다. 2026-11-11 AWS 조회 시 아직 미생성이므로 역할·OIDC·token 주입을 준비한 뒤 설치한다.
-    annotations:
-      eks.amazonaws.com/role-arn: "arn:aws:iam::840255883218:role/mulo-v3-prod-ebs_csi"
+    # 초기에는 Pod 전용 IAM 역할 주석을 사용하지 않는다. EC2 역할로 인증한다.
   nodeSelector:
     workload: "system"
   tolerations:
@@ -26,6 +27,9 @@ controller:
       memory: "256Mi"
 # Linux 노드 전체에 CSI 플러그인을 배치한다. controller만 system에 제한한다.
 node:
+  # 노드 플러그인은 EC2 메타데이터로 인스턴스 정보를 확인한다.
+  # hostNetwork를 사용하면 다른 워커의 IMDS hop limit=1을 유지할 수 있다.
+  hostNetwork: true
   # 노드 플러그인은 EBS를 사용할 모든 노드에 있어야 한다. system에만 제한하지 않는다.
   tolerateAllTaints: true
   resources:

@@ -81,7 +81,7 @@ server:
         service_registration "kubernetes" {}
     disruptionBudget:
       enabled: false
-  # EBS CSI의 IAM/OIDC를 먼저 준비한다. PVC를 지우면 저장한 시크릿을 잃을 수 있다.
+  # EBS CSI와 system EC2의 IAM 권한을 먼저 준비한다. PVC를 지우면 저장한 시크릿을 잃을 수 있다.
   dataStorage:
     enabled: true
     size: "5Gi"

@@ -12,7 +12,7 @@ priorityClasses:
     value: 90000
     description: "외부 요청 진입점 Envoy 우선순위"
     preemptionPolicy: "PreemptLowerPriority"
-# Redis·Vault·Prometheus·Loki의 PVC에 사용한다. EBS CSI와 IRSA를 먼저 정상화해야 실제 볼륨이 붙는다.
+# Redis·Vault·Prometheus·Loki의 PVC에 사용한다. EBS CSI와 AWS 권한을 먼저 정상화해야 실제 볼륨이 붙는다.
 storageClass:
   name: "gp3"
   # Retain 또는 Delete. 삭제 정책을 의도적으로 선택한다.

@@ -16,7 +16,7 @@ GitHub를 설정 원본으로 사용한다. CP의 파일은 초기 설치에 사
 - 앱 replicas는 1이다. HPA·KEDA ScaledObject·CronJob·앱 PDB 템플릿은 초기 구성에서 제외했다. Argo CD의 ApplicationSet·SSO·알림도 초기에는 켜지 않는다.
 - Calico 설치와 모든 NetworkPolicy는 이 저장소 밖에서 관리한다. RabbitMQ 리소스는 포함하지 않는다.
 
-직접 작성한 차트는 `.tpl` 파일과 `include` helper 없이 YAML에서 `{{ .Values... }}`를 직접 참조한다. `if/else/with` 분기와 `range` 반복을 사용하지 않으며, namespace, quota, PriorityClass, 플랫폼 Secret도 반복문 없이 하나씩 직접 작성한다. 따옴표 함수(`quote`)도 쓰지 않고, 문자열이어야 하는 값만 YAML에 따옴표를 직접 적는다. 공식 차트의 `enabled` 값은 해당 차트의 설정 항목으로 유지한다. `toYaml` 없이 자원·배치·라우팅 항목을 YAML 필드별로 작성한다. 빈 annotations는 제외하고, EBS CSI·Cluster Autoscaler·Loki의 AWS 역할 연결 3곳만 유지한다.
+직접 작성한 차트는 `.tpl` 파일과 `include` helper 없이 YAML에서 `{{ .Values... }}`를 직접 참조한다. `if/else/with` 분기와 `range` 반복을 사용하지 않으며, namespace, quota, PriorityClass, 플랫폼 Secret도 반복문 없이 하나씩 직접 작성한다. 따옴표 함수(`quote`)도 쓰지 않고, 문자열이어야 하는 값만 YAML에 따옴표를 직접 적는다. 공식 차트의 `enabled` 값은 해당 차트의 설정 항목으로 유지한다. `toYaml` 없이 자원·배치·라우팅 항목을 YAML 필드별로 작성한다. 빈 annotations는 제외하고, Cluster Autoscaler·Loki의 Pod IAM 역할 연결을 유지한다. EBS CSI는 초기 구축에서 system EC2 역할을 사용한다.
 
 ## 실제 설치 전에 남은 작업
 
@@ -26,7 +26,7 @@ GitHub를 설정 원본으로 사용한다. CP의 파일은 초기 설치에 사
 |---|---|
 | ECR | 네 앱의 게시된 이미지 태그를 각 values에 반영했다. 워커의 ECR 이미지 Pull 인증을 준비한다. |
 | Pod IAM/OIDC | OIDC provider와 아래 Pod 역할이 아직 없다. kubeadm issuer/JWKS, IAM 신뢰 정책, projected token과 AWS SDK 환경변수 주입을 준비한다. |
-| EBS CSI 역할 | values에는 Terraform에 정의된 예정 ARN `arn:aws:iam::840255883218:role/mulo-v3-prod-ebs_csi`를 넣었다. 역할을 생성한 뒤 설치한다. |
+| EBS CSI 역할 | 초기 구축은 `mulo-v3-prod-system` EC2 역할을 사용한다. 아래 스토리지 절에서 Terraform 정책과 기존 system EC2의 메타데이터 설정을 적용한 뒤 CSI를 설치한다. |
 | Autoscaler 역할 | 예정 ARN은 `arn:aws:iam::840255883218:role/mulo-v3-prod-autoscaler`다. 새 워커의 join·ECR bootstrap과 역할별 max 설정은 IaC 코드에 반영했다. 실제 AWS 적용은 별도다. |
 | Loki 역할 | 예정 ARN은 `arn:aws:iam::840255883218:role/mulo-v3-prod-loki`다. 실제 Loki S3 버킷 접근 권한이 필요하다. |
 | HTTPS | 조회 당시 서울 ACM에 발급·검증 중 인증서가 없고, ALB에는 HTTP 80 리스너만 있었다. 도메인을 포함하는 인증서와 ALB 443 리스너를 먼저 준비한다. |
@@ -245,12 +245,121 @@ kubectl -n argocd get pods -o wide
 
 ### 스토리지와 Vault
 
-EBS CSI용 IAM/OIDC가 준비된 뒤 설치한다. StorageClass만 생성돼 있는 상태에서는 Vault·Prometheus·Loki PVC가 실제 볼륨을 받지 못할 수 있다.
+**실행 장소: 이 절의 Helm·kubectl 명령은 모두 CP1이다.**
 
-```sh
-helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver --version 2.68.0 --namespace kube-system -f system/ebs-csi/values.yaml --wait
-kubectl get storageclass gp3
+**설치 순서: EBS CSI의 AWS 권한 준비 → EBS CSI 설치·정상 동작 확인 → Vault 설치 → PVC Bound·Pod Running 확인 → Vault init·unseal.** StorageClass `gp3`만 만들어서는 EBS 볼륨이 생기지 않는다. 볼륨을 실제로 만드는 프로그램인 EBS CSI가 필요하다.
+
+2026-11-12 확인된 막힘: Vault PVC는 `ExternalProvisioning`을 기다리고, EBS CSI 이름으로 조회한 kube-system Pod는 없었다. AWS에서도 values에 지정한 `mulo-v3-prod-ebs_csi` 역할은 아직 생성되지 않았다. Vault Secret·PVC를 지우지 않고 EBS CSI와 권한을 먼저 준비한다.
+
+초기 구축은 사용자가 선택한 **system EC2 역할 인증**을 사용한다. values에서 아직 없는 Pod IAM 역할 ARN과 고정 키 Secret 참조를 제거했다. ECR 설치 스크립트는 이미지 Pull 인증만 설정하므로 EBS 권한은 아래에서 별도로 준비한다.
+
+#### 스토리지 1. 로컬 Mac에서 실행 — system EC2 역할에 EBS 권한 적용
+
+**여기는 로컬 Mac이다. CP1이나 워커에서 Terraform을 실행하지 않는다.** 코드와 운영 입력값은 이미 반영했으며, HCL을 직접 수정할 단계는 없다.
+
+- `mulo-v3-prod-system` 역할에 AWS 공식 `AmazonEBSCSIDriverPolicyV2`를 연결한다. 이 정책은 CSI 관리 태그가 있는 EBS 볼륨 등을 관리한다.
+- 새 system 노드의 Launch Template에 메타데이터 응답 hop limit을 2로 둔다. Pod 네트워크에서 실행되는 CSI controller가 노드의 임시 IAM 자격증명을 읽기 위해 필요하다. IMDSv2 토큰 요구는 유지한다. 다른 역할과 CP는 hop limit 1을 유지한다.
+- 이 방식에서는 system 노드 역할을 조회할 수 있는 다른 Pod·프로세스도 같은 EBS 권한을 사용할 수 있다. 초기 구축에 한해 선택한 범위이며, Pod 전용 IAM으로 전환할 때 노드 권한과 hop limit을 함께 되돌린다. AWS 키는 Git·Helm values에 저장하지 않는다.
+
+```bash
+# 실행 장소: 로컬 Mac. Terraform 저장소로 이동한다.
+cd ~/Desktop/v3-terraform
+# 현재 코드와 AWS 상태로 계획을 만든다. 여기까지는 AWS를 변경하지 않는다.
+AWS_PROFILE=mulo-prod terraform -chdir=environments/prod plan \
+  -input=false -lock-timeout=30s -out=system-ebs-csi.tfplan
+# 권한 추가·템플릿 변경과 EC2 교체·삭제 여부를 검토한다.
+AWS_PROFILE=mulo-prod terraform -chdir=environments/prod show system-ebs-csi.tfplan
 ```
+
+2026-11-12 실제 plan 결과는 **추가 1개·변경 8개·삭제 0개**였다. 추가는 system 역할에 연결할 IAM 정책이며, 변경은 Launch Template 4개와 ASG 4개다. 현재 EC2·CP·AMI·노드 대수는 그대로이고 자동 instance refresh도 없다. ECR 자동 설치 변경도 이 계획에 함께 들어 있다. 현재 system EC2의 메타데이터 값은 다음 절의 별도 명령으로 적용한다.
+
+계획을 검토한 뒤 실제로 적용할 때 실행한다. 앞서 만든 `worker-ecr-bootstrap.tfplan`을 이 계획과 섞어 적용하지 않는다.
+
+```bash
+# 실행 장소: 같은 로컬 Mac. 검토한 계획을 실제 AWS에 적용한다.
+# 저장된 계획 적용에는 별도의 yes 확인이 없다.
+AWS_PROFILE=mulo-prod terraform -chdir=environments/prod apply system-ebs-csi.tfplan
+```
+
+#### 스토리지 2. 로컬 Mac에서 실행 — 현재 system EC2의 메타데이터 접근 설정
+
+Launch Template 변경은 새 EC2에 적용된다. **현재 실행 중인 system 워커 `i-042dbb16e93fc9592`에는 아래 명령을 한 번 실행한다.** EC2를 종료·재생성하거나 kubelet을 재시작하는 명령이 아니다. EBS IAM 정책은 같은 역할에 연결했으므로 현재 EC2에도 적용된다.
+
+```bash
+# 실행 장소: 로컬 Mac. 현재 system 워커만 IMDSv2 필수·hop limit 2로 설정한다.
+AWS_PROFILE=mulo-prod aws ec2 modify-instance-metadata-options \
+  --region ap-northeast-2 --instance-id i-042dbb16e93fc9592 \
+  --http-tokens required --http-put-response-hop-limit 2 \
+  --query 'InstanceMetadataOptions.{State:State,Tokens:HttpTokens,HopLimit:HttpPutResponseHopLimit}' \
+  --output json
+
+# 설정이 실제 반영됐는지 조회한다. State=applied, Tokens=required, HopLimit=2를 확인한다.
+AWS_PROFILE=mulo-prod aws ec2 describe-instances \
+  --region ap-northeast-2 --instance-ids i-042dbb16e93fc9592 \
+  --query 'Reservations[].Instances[].MetadataOptions.{State:State,Tokens:HttpTokens,HopLimit:HttpPutResponseHopLimit}' \
+  --output json
+```
+
+`State=pending`이면 조회 명령을 다시 실행해 `applied`가 된 뒤 진행한다. system 워커가 추가로 생기면 새 Launch Template에서 같은 설정을 받는다. 기존에 system 워커를 여러 대 만들어 둔 경우에는 각 system 인스턴스에도 같은 설정이 필요하다.
+
+같은 Mac에서 바꾼 values를 원격 저장소에 올린다.
+
+```bash
+# 실행 장소: 로컬 Mac. Helm 저장소 루트로 이동한다.
+cd ~/Desktop/mulostudio
+# EC2 역할 인증으로 맞춘 EBS CSI 설정과 관련 주석·README만 기록한다.
+git add mulo/system/ebs-csi/values.yaml mulo/system/vault/values.yaml \
+  mulo/system/foundation/chart/values.yaml mulo/README.md
+# 변경을 커밋하고 CP1에서 받을 수 있도록 푸시한다.
+git commit -m "Use system EC2 role for initial EBS CSI setup"
+git push origin main
+```
+
+#### 스토리지 3. CP1에서 실행 — 저장소 갱신 후 EBS CSI 설치
+
+**여기부터는 CP1 `10.60.16.44`이다. 워커의 SSM 터미널이 아니다.** Mac에서 이 README와 values 변경을 Git에 커밋·푸시한 뒤 진행한다.
+
+```bash
+# 실행 장소: CP1. Mac에서 푸시한 최신 파일을 받는다. 변경 충돌 시 강제로 덮어쓰지 않는다.
+git -C /home/16-mulo-kube pull --ff-only &&
+cd /home/16-mulo-kube/mulo &&
+# 공식 Helm 저장소를 등록하고 목록을 갱신한다.
+helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver &&
+helm repo update aws-ebs-csi-driver &&
+# system 배치·EC2 역할 인증·노드 플러그인 hostNetwork 설정으로 설치한다.
+helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \
+  --version 2.68.0 --namespace kube-system \
+  -f system/ebs-csi/values.yaml --wait --timeout 5m
+```
+
+설치가 성공하면 같은 CP1에서 확인한다.
+
+```bash
+# CSI controller가 준비됐는지 확인한다.
+kubectl -n kube-system rollout status deployment/ebs-csi-controller --timeout=180s
+# 각 노드의 볼륨 연결 플러그인이 준비됐는지 확인한다.
+kubectl -n kube-system rollout status daemonset/ebs-csi-node --timeout=180s
+# CSI 드라이버 등록과 Pod 실행 상태를 확인한다.
+kubectl get csidriver ebs.csi.aws.com
+kubectl -n kube-system get pods -l app.kubernetes.io/name=aws-ebs-csi-driver -o wide
+```
+
+`No resources found`·`NotFound`가 나오거나 CSI Pod가 정상 실행되지 않으면 init으로 넘어가지 않는다. 같은 CP1에서 아래를 확인한다. 로그에 고정 키나 토큰을 넣어 공유하지 않는다.
+
+```bash
+# 실행 장소: CP1. EBS 생성·AWS 권한 관련 오류를 확인한다.
+kubectl -n kube-system logs deployment/ebs-csi-controller -c ebs-plugin --tail=80
+# controller가 Pending이면 노드 배치·자원·taint 이벤트를 확인한다.
+kubectl -n kube-system describe pods -l app=ebs-csi-controller
+# Vault PVC의 최신 볼륨 생성 이벤트를 확인한다.
+kubectl -n vault describe pvc data-vault-0
+```
+
+**이미 Vault를 설치했다면 Secret·PVC·Vault release를 다시 만들지 않는다. 아래 TLS 생성·Helm 설치 블록을 건너뛰고 “PVC가 Bound가 될 때까지 기다린다” 블록부터 진행한다.** CSI가 준비되면 기존 Pending PVC의 볼륨 생성을 다시 처리한다. 새 볼륨은 system 워커가 있는 AZ에 생성된다.
+
+[공식 CSI 설치·인증 설명](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/install.md), [AWS 공식 권한 정책](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEBSCSIDriverPolicyV2.html)
+
+#### 스토리지 4. CP1에서 실행 — Vault 설치·초기화
 
 새 Vault 설치의 TLS 준비 예시다. 파일은 Git 작업 폴더 밖에 보관한다. 기존 Vault의 인증서를 바꾸는 작업으로 반복 실행하지 않는다.
 
@@ -269,7 +378,31 @@ helm upgrade --install vault hashicorp/vault --version 0.34.1 --namespace vault 
 kubectl -n vault get pods,pvc -o wide
 ```
 
-최초 설치에서는 --wait를 사용하지 않는다. 새 저장소에 처음 한 번 `vault operator init`을 실행하고 나온 unseal key와 root token을 Git 밖에 보관한다.
+**실행 장소: CP1. `helm`의 `STATUS: deployed`는 설치 요청이 반영됐다는 뜻이다. 아래 확인을 마치기 전에 `vault operator init`을 실행하지 않는다.**
+
+```bash
+# 실행 장소: CP1. 먼저 Vault용 EBS 볼륨이 준비돼 PVC가 Bound가 될 때까지 기다린다.
+kubectl -n vault wait --for=jsonpath='{.status.phase}'=Bound pvc/data-vault-0 --timeout=180s &&
+# 볼륨 준비가 끝났을 때만 Vault Pod가 Running이 될 때까지 기다린다.
+kubectl -n vault wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=180s
+```
+
+시간 초과가 나면 **init으로 넘어가지 않고**, CP1에서 다음 결과를 확인한다. `AGE 0s`의 Pending은 생성 직후의 일시적인 상태일 수도 있다. 계속 Pending이면 이벤트로 원인을 구분한다.
+
+```bash
+# 실행 장소: CP1. PVC가 EBS 생성·연결을 기다리는 이유를 본다.
+kubectl -n vault describe pvc data-vault-0
+# Pod 배치 실패·taint·CPU/메모리 부족·볼륨 관련 이벤트를 본다.
+kubectl -n vault describe pod vault-0
+# EBS CSI controller와 노드 플러그인의 실행 상태를 확인한다.
+kubectl -n kube-system get pods -l app.kubernetes.io/name=aws-ebs-csi-driver -o wide
+```
+
+PVC의 `waiting for first consumer`는 `WaitForFirstConsumer` 설정에 따른 대기다. `ExternalProvisioning`이 계속되면 CSI controller 상태를 확인하고, `UnauthorizedOperation`, `AccessDenied`, `NoCredentialProviders`, IMDS 자격증명 오류가 나오면 EBS CSI의 AWS 인증·권한을 먼저 해결한다. kubeadm에서는 ServiceAccount의 역할 ARN 주석만으로 AWS 인증이 구성되지 않는다. Pod의 `FailedScheduling`이면 이벤트에 나온 자원·라벨·taint 조건을 확인한다.
+
+**PVC가 Bound이고 Vault 컨테이너가 실행된 다음** 초기화한다. 초기화·unseal 전에는 `Running 0/1`이 정상일 수 있으므로 이 단계에서 `Ready=True`를 기다리지 않는다. Secret이나 PVC를 삭제해 다시 설치할 필요는 없다.
+
+최초 설치에서는 Helm의 `--wait`를 사용하지 않는다. 새 저장소에 처음 한 번 `vault operator init`을 실행하고 나온 unseal key와 root token을 Git 밖에 보관한다.
 기본 threshold는 서로 다른 키 3개다. unseal 명령을 세 번 실행해 각각 다른 키를 입력한다.
 
 ```sh
@@ -351,14 +484,14 @@ kubectl wait --for=delete pod --selector app=redis --namespace redis --timeout=1
 
 전환 후 `kubectl get statefulset,pod,pvc --namespace redis`로 `redis-0`과 PVC를 확인한다. 이후 redis.conf 값을 바꾸면 `kubectl rollout restart statefulset/redis --namespace redis`로 재시작해 반영한다. StatefulSet이나 Helm release를 지워도 데이터 PVC는 자동 삭제되지 않는다.
 
-Grafana는 Vault의 관리자 Secret 동기화 후 설치한다. Loki는 S3 Pod IAM 권한이 필요하고, Prometheus·Loki PVC에는 EBS CSI가 필요하다.
+Grafana는 Vault의 관리자 Secret 동기화 후 설치한다. Loki의 S3 Pod IAM 권한은 별도로 필요하고, Prometheus·Loki PVC에는 EBS CSI가 필요하다. system 역할에 추가한 EBS 권한으로 Loki의 S3 인증까지 해결되는 것은 아니다.
 Grafana의 이전 `grafana/grafana 10.5.15`는 deprecated 상태다. 유지보수 저장소인 `grafana-community/grafana 10.7.0`으로 옮겼고 Grafana 앱 버전 12.3.1은 유지했다. 기존 values의 관리자 Secret·HTTPS Route·system 노드 배치를 다시 검증했다. Loki·Alloy는 기존 grafana 저장소를 사용한다. [이전 안내](https://github.com/grafana/helm-charts/blob/main/charts/grafana/README.md)
 Alloy의 수집 설정은 values에 포함했다. Prometheus의 기본 Kubernetes 수집과 별개로 앱 수집에는 실제 메트릭 endpoint와 ServiceMonitor가 필요하다.
 Metrics Server·Autoscaler·KEDA의 values도 작성했다. 공식 차트 버전은 Metrics Server `3.14.0`, Cluster Autoscaler `9.60.0`, KEDA `2.21.0`을 사용한다. 나머지 공식 차트 버전은 위 설치 명령의 `--version`에 명시했다. 자동 확장은 현재 비활성 상태로 시작한다.
 
 ## 검증과 제한
 
-워커 ECR 설치 스크립트는 설치 파일 누락·재실행·CP 차단·인증 실패·재시작 실패·도구 자동 설치 등을 모의 환경에서 13개 시나리오로 검증했다. Terraform 검증과 모의 테스트 20개도 통과했다. 실제 AWS plan은 Launch Template 4개와 ASG 4개 변경, EC2 교체·삭제 없음이다. 실제 워커에서의 설치·이미지 Pull과 AWS apply는 이 문서의 실행 단계에서 확인한다.
+워커 ECR 설치 스크립트는 설치 파일 누락·재실행·CP 차단·인증 실패·재시작 실패·도구 자동 설치 등을 모의 환경에서 13개 시나리오로 검증했다. Terraform 검증과 모의 테스트 22개도 통과했다. 최신 실제 AWS plan은 system EBS IAM 정책 연결 1개 추가와 Launch Template 4개·ASG 4개 변경이며, EC2 교체·삭제는 없다. EBS CSI 공식 차트 2.68.0도 lint·렌더링해 system 배치, EC2 역할 인증 설정, 노드 hostNetwork, 고정 키 참조가 없는 것을 확인했다. 실제 워커에서의 설치·이미지 Pull과 AWS apply는 이 문서의 실행 단계에서 확인한다.
 
 Kubernetes 1.36.6 기준으로 로컬 차트 8개와 공식 차트 12개를 기본 values 그대로 lint·렌더링했다. 별도 bootstrap override는 Argo CD 초기 설치에서 HTTPRoute가 생성되지 않는지 확인했다.
 namespace 12개, 관리 UI Route의 Service·포트·Gateway 참조, Redis StatefulSet·PVC·무인증 구성, Vault의 system 배치·PVC, 정책 미생성을 확인했다.
