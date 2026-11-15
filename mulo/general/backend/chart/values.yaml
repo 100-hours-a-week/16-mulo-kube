@@ -134,53 +134,18 @@ externalSecrets:
     kind: "ClusterSecretStore"
   # Deployment의 secretRef가 이 Secret 이름을 직접 참조한다.
   targetName: "backend-secrets"
-  # 채팅·AI 인증 토큰은 상대 서비스와 같은 Vault 필드를 읽는다.
+  # mulo/prod/apps/backend의 모든 키(JWT_SECRET, KAKAO_REST_API_KEY, KMA_SERVICE_KEY,
+  # SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, AI_INTERNAL_TOKEN, CHAT_INTERNAL_API_KEY,
+  # CHAT_AUTH_VERIFY_API_KEY, MULO_SECURITY_ALLOWED_ORIGINS, REPORT_OPERATION_TOKEN 등)를
+  # 키 이름 그대로 환경변수로 넣는다. 키를 추가하면 차트 수정 없이 반영된다.
+  extractKey: "mulo/prod/apps/backend"
+  # 소문자로 저장된 키만 환경변수 이름으로 바꿔 준다.
   data:
     dbPassword:
       secretKey: "DB_PASSWORD"
       remoteRef:
         key: "mulo/prod/apps/backend"
         property: "db_password"
-    jwtSecret:
-      secretKey: "JWT_SECRET"
-      remoteRef:
-        key: "mulo/prod/apps/backend"
-        property: "jwt_secret"
-    kakaoRestApiKey:
-      secretKey: "KAKAO_REST_API_KEY"
-      remoteRef:
-        key: "mulo/prod/apps/backend"
-        property: "kakao_rest_api_key"
-    kmaServiceKey:
-      secretKey: "KMA_SERVICE_KEY"
-      remoteRef:
-        key: "mulo/prod/apps/backend"
-        property: "kma_service_key"
-    spotifyClientId:
-      secretKey: "SPOTIFY_CLIENT_ID"
-      remoteRef:
-        key: "mulo/prod/apps/backend"
-        property: "spotify_client_id"
-    spotifyClientSecret:
-      secretKey: "SPOTIFY_CLIENT_SECRET"
-      remoteRef:
-        key: "mulo/prod/apps/backend"
-        property: "spotify_client_secret"
-    aiInternalToken:
-      secretKey: "AI_INTERNAL_TOKEN"
-      remoteRef:
-        key: "mulo/prod/shared/service-auth"
-        property: "ai_internal_token"
-    chatInternalApiKey:
-      secretKey: "CHAT_INTERNAL_API_KEY"
-      remoteRef:
-        key: "mulo/prod/shared/service-auth"
-        property: "chat_internal_api_key"
-    chatAuthVerifyApiKey:
-      secretKey: "CHAT_AUTH_VERIFY_API_KEY"
-      remoteRef:
-        key: "mulo/prod/shared/service-auth"
-        property: "chat_internal_api_key"
 # 노드의 workload 라벨과 일치시킨다.
 nodeSelector:
   workload: "general"
