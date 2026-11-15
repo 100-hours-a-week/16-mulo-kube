@@ -19,16 +19,6 @@ spec:
                 name: mulo-gateway
                 namespace: edge
                 sectionName: http
-            # 모든 워커에 dedicated taint가 있어 검증 Pod를 general 노드에 둔다.
-            podTemplate:
-              spec:
-                nodeSelector:
-                  workload: general
-                tolerations:
-                  - key: dedicated
-                    operator: Equal
-                    value: general
-                    effect: NoSchedule
 ---
 # 메인 도메인(mulostudio.p-e.kr)은 업체 웹포워딩으로 가서 HTTP-01 검증이 불가능해 넣지 않는다.
 # 서브도메인을 추가할 때는 DNS CNAME(→ ALB)을 먼저 등록한 뒤 여기에 넣는다. 하나라도 실패하면 전체 발급이 실패한다.
