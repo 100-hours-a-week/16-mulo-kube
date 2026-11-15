@@ -1,0 +1,52 @@
+# Gateway API HTTP-01 solver를 쓰려면 enableGatewayAPI가 필요하다.
+crds:
+  enabled: true
+config:
+  apiVersion: controller.config.cert-manager.io/v1alpha1
+  kind: ControllerConfiguration
+  enableGatewayAPI: true
+global:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+nodeSelector:
+  workload: "system"
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+webhook:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+cainjector:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+startupapicheck:
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+resources:
+  requests:
+    cpu: "10m"
+    memory: "64Mi"
+  limits:
+    memory: "256Mi"
