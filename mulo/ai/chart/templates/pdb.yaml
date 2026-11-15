@@ -1,0 +1,13 @@
+# 노드를 비울 때(CA scale-down, drain) 동시에 내려가는 Pod 수를 제한한다.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+spec:
+  minAvailable: {{ .Values.autoscaling.pdbMinAvailable }}
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
