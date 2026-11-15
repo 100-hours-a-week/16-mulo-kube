@@ -54,12 +54,13 @@ server:
 controller:
   replicas: 1
   resources:
+    # Envoy Gateway·kube-prometheus CRD가 늘면서 768Mi에서 OOMKilled가 반복되어 올렸습니다.
     requests:
       cpu: "100m"
-      memory: "256Mi"
+      memory: "512Mi"
     limits:
       cpu: "500m"
-      memory: "768Mi"
+      memory: "1536Mi"
 repoServer:
   replicas: 1
   resources:
