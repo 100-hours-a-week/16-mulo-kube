@@ -1,0 +1,39 @@
+# 각 노드의 Pod 로그를 Loki로 보낸다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.15.0
+      helm:
+        releaseName: alloy
+        valueFiles:
+        - $values/mulo/system/monitoring/alloy/values.yaml
+    # values 파일만 이 Git 저장소에서 읽는다.
+    - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    # 자식 Application끼리는 sync-wave가 생성 순서만 정하고 준비 완료를 기다리지 않는다.
+    # CRD·Secret이 아직 없어 실패하면 재시도로 따라잡는다.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true

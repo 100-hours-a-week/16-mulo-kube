@@ -41,9 +41,6 @@ spec:
           ports:
             - name: {{ .Values.service.portName }}
               containerPort: {{ .Values.service.targetPort }}
-          envFrom:
-            - configMapRef:
-                name: {{ .Values.configMap.name }}
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}

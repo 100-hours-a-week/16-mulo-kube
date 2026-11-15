@@ -85,18 +85,6 @@
         "portName"
       ]
     },
-    "configMap": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "name"
-      ]
-    },
     "strategy": {
       "type": "object",
       "properties": {
@@ -296,7 +284,6 @@
     "revisionHistoryLimit",
     "image",
     "service",
-    "configMap",
     "strategy",
     "resources",
     "probes"

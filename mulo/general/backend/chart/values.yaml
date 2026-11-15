@@ -31,7 +31,7 @@ service:
   # HTTPRoute·메트릭 설정에서 식별할 포트 이름.
   portName: "http"
 configMap:
-  # backend 원본 Deployment도 이 이름으로 ConfigMap을 참조한다.
+  # Deployment의 envFrom이 이 이름으로 ConfigMap을 참조한다.
   name: "backend-config"
   # BE main의 application.yaml 및 application-prod.yaml이 읽는 환경변수 이름이다.
   # 현재 코드는 GCS SDK를 사용한다. 사용자는 S3 전환 후 배포하기로 했으므로 지원하지 않는 S3 환경변수는 임의로 추가하지 않는다.
@@ -84,6 +84,16 @@ probes:
     initialDelaySeconds: 0
     periodSeconds: 10
     failureThreshold: 3
+serviceAccount:
+  name: "backend"
+  # Kubernetes API 토큰이 필요한 앱만 true. 일반 앱은 false.
+  automountServiceAccountToken: false
+# Pod 종료 전 유예 시간(초).
+terminationGracePeriodSeconds: 30
+securityContext:
+  allowPrivilegeEscalation: false
+  # Pod에서 제거할 리눅스 권한. ALL이면 전부 제거한다.
+  dropCapability: "ALL"
 # 기존 GCP URL map의 /api·/image 경로를 보존한다. 실제 앱 URI와 대조한다.
 httpRoute:
   # 연결할 Gateway의 이름, namespace, listener 이름.
@@ -163,3 +173,12 @@ externalSecrets:
       remoteRef:
         key: "mulo/prod/shared/service-auth"
         property: "chat_internal_api_key"
+# 노드의 workload 라벨과 일치시킨다.
+nodeSelector:
+  workload: "general"
+# 해당 워커 그룹의 dedicated taint를 허용한다.
+toleration:
+  key: "dedicated"
+  operator: "Equal"
+  value: "general"
+  effect: "NoSchedule"

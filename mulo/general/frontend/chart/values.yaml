@@ -30,13 +30,8 @@ service:
   targetPort: 3000
   # HTTPRoute·메트릭 설정에서 식별할 포트 이름.
   portName: "http"
-configMap:
-  # backend 원본 Deployment도 이 이름으로 ConfigMap을 참조한다.
-  name: "frontend-config"
-  # FE main은 Vite 정적 빌드이며 런타임 ConfigMap으로 VITE_* 값이 바뀌지 않는다.
-  # 빌드 단계에서 VITE_API_BASE_URL, VITE_KAKAO_MAP_APP_KEY, VITE_SENTRY_DSN을 설정한다.
-  data:
-    TZ: "Asia/Seoul"
+# FE는 Vite 정적 빌드라 런타임 환경변수를 읽지 않으므로 ConfigMap을 두지 않는다.
+# VITE_API_BASE_URL, VITE_KAKAO_MAP_APP_KEY, VITE_SENTRY_DSN은 이미지 빌드 단계에서 설정한다.
 resources:
   requests:
     # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.

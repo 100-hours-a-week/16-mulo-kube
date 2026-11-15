@@ -13,7 +13,8 @@ deployment:
         operator: "Equal"
         value: "system"
         effect: "NoSchedule"
-    priorityClassName: "mulo-system"
+  # 공식 차트는 deployment.priorityClassName을 읽는다. pod 아래에 두면 무시된다.
+  priorityClassName: "mulo-system"
   envoyGateway:
     resources:
       requests:
@@ -23,12 +24,14 @@ deployment:
         cpu: "300m"
         memory: "512Mi"
 # 인증서 생성 Job도 system 노드에 배치한다.
+# 공식 차트의 키는 certgen.job.* 이다. certgen.nodeSelector는 무시되어 Job이 갈 노드가 없었다.
 certgen:
-  nodeSelector:
-    workload: "system"
-  tolerations:
-    -
-      key: "dedicated"
-      operator: "Equal"
-      value: "system"
-      effect: "NoSchedule"
+  job:
+    nodeSelector:
+      workload: "system"
+    tolerations:
+      -
+        key: "dedicated"
+        operator: "Equal"
+        value: "system"
+        effect: "NoSchedule"
