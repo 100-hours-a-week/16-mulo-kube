@@ -13,8 +13,12 @@ listener:
 # foundation의 namespace.yaml 라벨과 같은 값이어야 한다.
 gatewayAccessLabel: "true"
 envoy:
-  # 현재 general 워커가 1대이므로 1개로 시작한다. 노드 증설 후 설계의 다중 Pod/AZ 구성을 적용한다.
-  replicas: 1
+  # 사용자 트래픽 입구라 2개 아래로 내려가지 않게 한다. CPU가 오르면 HPA가 늘린다.
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilization: 70
+  pdbMinAvailable: 1
   # Terraform의 config.envoy_node_port와 동일한 NodePort(30000~32767).
   nodePort: 30080
   # 선택한 PriorityClass 이름. foundation에 먼저 정의한다.

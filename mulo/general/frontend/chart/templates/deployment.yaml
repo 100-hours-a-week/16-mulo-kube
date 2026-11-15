@@ -7,7 +7,6 @@ metadata:
   labels:
     app: {{ .Values.app.name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
   minReadySeconds: {{ .Values.minReadySeconds }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   strategy:

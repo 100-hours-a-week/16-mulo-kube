@@ -17,6 +17,9 @@ spec:
     metadata:
       labels:
         app: {{ .Values.name }}
+      annotations:
+        # 노드를 줄일 때 CA가 Redis를 옮기지 않게 한다. 옮기면 채팅 Pub/Sub이 잠깐 끊긴다.
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     spec:
       automountServiceAccountToken: false
       nodeSelector:

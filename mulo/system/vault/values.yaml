@@ -1,5 +1,8 @@
 # Vault는 별도 EC2가 아니라 system 워커의 Pod로 운영한다.
-# 초기 구성은 TLS + Raft PVC 5Gi + 수동 unseal이다. root token과 unseal key는 값 파일에 넣지 않는다.
+# TLS + Raft PVC 5Gi + AWS KMS auto-unseal 구성이다. root token과 recovery key는 값 파일에 넣지 않는다.
+# auto-unseal은 Terraform이 만든 KMS 키(alias/mulo-v3-prod-vault)를 쓴다. 인증은 system 노드 EC2 역할이고,
+# Terraform의 vault_kms_use_node_role = true가 이 키의 Encrypt·Decrypt·DescribeKey 권한을 붙인다.
+# 이미 Shamir 키로 init한 Vault는 처음 한 번 seal migration이 필요하다(README의 Vault 절).
 global:
   enabled: true
   tlsDisable: false
@@ -9,6 +12,9 @@ csi:
   enabled: false
 server:
   enabled: true
+  # 노드를 줄일 때 CA가 Vault Pod를 옮기지 않게 한다. Vault가 있는 노드는 scale-down 대상에서 빠진다.
+  annotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
   # 공식 Helm chart 0.34.1에서 검증한 Vault 2.0.4를 고정한다.
   image:
     repository: "hashicorp/vault"
@@ -76,6 +82,12 @@ server:
         
         storage "raft" {
           path = "/vault/data"
+        }
+
+        # Pod가 다시 떠도 KMS로 자동 unseal한다. 키 ID는 별칭을 쓴다.
+        seal "awskms" {
+          region     = "ap-northeast-2"
+          kms_key_id = "alias/mulo-v3-prod-vault"
         }
         
         service_registration "kubernetes" {}

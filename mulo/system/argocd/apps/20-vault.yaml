@@ -1,4 +1,5 @@
-# Vault는 재시작마다 수동 unseal이 필요하므로 자동 동기화하지 않는다. 변경 시 UI에서 직접 Sync한다.
+# Vault는 KMS auto-unseal이지만 설정 변경이 seal·저장소에 직접 닿으므로 자동 동기화하지 않는다. 변경 시 UI에서 직접 Sync한다.
+# StatefulSet은 OnDelete라 Sync 뒤 vault-0 Pod를 지워야 새 설정으로 뜬다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

@@ -24,6 +24,8 @@ storageClass:
   # EBS 볼륨 크기 확장을 허용할지 true/false.
   allowVolumeExpansion: true
 # 앱 namespace에만 자원 상한을 둔다. 플랫폼 namespace에는 두지 않는다.
+# HPA maxReplicas + 롤링 업데이트 여유 1개(maxSurge)가 동시에 떠도 넘지 않게 잡았다.
+# 앱 values의 resources나 autoscaling.maxReplicas를 바꾸면 이 값도 다시 계산한다.
 resourceQuotas:
   frontend:
     namespace: "frontend"
@@ -38,9 +40,9 @@ resourceQuotas:
     namespace: "backend"
     requests:
       cpu: "2"
-      memory: "4Gi"
+      memory: "5Gi"
     limits:
-      cpu: "4"
+      cpu: "6"
       memory: "8Gi"
     pods: "10"
   chat:
@@ -49,15 +51,15 @@ resourceQuotas:
       cpu: "2"
       memory: "4Gi"
     limits:
-      cpu: "4"
+      cpu: "6"
       memory: "8Gi"
     pods: "10"
   aiApi:
     namespace: "ai-api"
     requests:
-      cpu: "3"
-      memory: "10Gi"
-    limits:
       cpu: "6"
-      memory: "14Gi"
+      memory: "18Gi"
+    limits:
+      cpu: "10"
+      memory: "30Gi"
     pods: "10"

@@ -11,6 +11,7 @@ Git이 설정의 원본이고, 배포는 Argo CD가 합니다.
 - [시크릿](#시크릿)
 - [도메인과 라우팅](#도메인과-라우팅)
 - [앱별 설정](#앱별-설정)
+- [자동 확장](#자동-확장)
 - [차트 작성 규칙](#차트-작성-규칙)
 - [알려진 제약](#알려진-제약)
 
@@ -66,6 +67,7 @@ mulo/
 │   ├── ebs-csi/
 │   ├── vault/
 │   ├── metrics-server/
+│   ├── cluster-autoscaler/ # 노드 자동 증설
 │   └── monitoring/         # prometheus, grafana, loki, alloy
 └── scripts/
     └── install-worker-ecr.sh   # 워커 노드 ECR 인증 설정
@@ -99,14 +101,14 @@ kubectl apply -f system/argocd/root-app.yaml
 | wave | 대상 |
 |---|---|
 | -3 | foundation |
-| -2 | EBS CSI, Envoy Gateway, External Secrets, metrics-server |
+| -2 | EBS CSI, Envoy Gateway, External Secrets, metrics-server, Cluster Autoscaler |
 | -1 | Vault, Vault store, Redis, Gateway, Argo CD 자신 |
 | 0 | Loki, Prometheus |
 | 1 | Grafana, Alloy |
 | 2 | frontend, backend, chat, ai-api |
 
 - wave는 생성 순서만 정합니다. 앞 단계가 준비될 때까지 기다리지 않으므로, CRD나 Secret이 아직 없어서 실패한 건 재시도로 따라잡습니다.
-- **Vault만 수동 Sync입니다.** Pod가 재시작되면 unseal을 다시 해야 하기 때문입니다.
+- **Vault만 수동 Sync입니다.** 설정이 seal과 저장소에 바로 닿기 때문입니다. StatefulSet이 OnDelete라 Sync 뒤 `vault-0`을 지워야 새 설정으로 뜹니다.
 - Argo CD가 관리하기 시작한 뒤에는 `helm upgrade`나 `helm uninstall`을 직접 쓰지 마세요.
 
 ### 공식 차트 버전
@@ -123,6 +125,7 @@ kubectl apply -f system/argocd/root-app.yaml
 | grafana/loki | 7.6.0 |
 | grafana/alloy | 1.15.0 |
 | metrics-server | 3.14.0 |
+| autoscaler/cluster-autoscaler | 9.60.0 (이미지 v1.36.0) |
 
 버전을 올릴 때는 `system/argocd/apps/`의 `targetRevision`을 바꿉니다.
 
@@ -179,7 +182,41 @@ Redis는 인증 없이 쓰고, 접근 제한은 Calico 정책으로 합니다.
 | ai-api | 8000 | `/health` | 이미지 하나에서 gateway, 모더레이션, 임베딩, worker가 같이 돕니다 |
 
 이미지 태그는 각 차트의 `values.yaml`에 있고, 바꿔서 커밋하면 Argo CD가 배포합니다.
-replicas는 전부 1이고 HPA는 아직 없습니다.
+Pod 수는 HPA가 정합니다. 아래 자동 확장 절을 보세요.
+
+## 자동 확장
+
+트래픽이 늘면 두 단계로 늘어납니다.
+
+```text
+CPU 사용률 ↑ → HPA가 Pod를 늘림 → 노드에 자리가 없어 Pending
+            → Cluster Autoscaler가 그 역할의 ASG desired를 늘림
+            → 새 EC2가 User Data로 kubeadm join (workload 라벨·taint 자동 등록)
+            → Pending Pod가 새 노드에 뜸 (general이면 ALB 대상 그룹에도 자동 등록)
+```
+
+| 대상 | 최소 | 최대 | 기준 |
+|---|---|---|---|
+| frontend, backend, chat, ai-api | 2 | 4 | CPU 70% |
+| Envoy (edge) | 2 | 4 | CPU 70% |
+| general 노드 (ASG) | 1 | 3 | Pending Pod |
+| chat 노드 | 1 | 2 | Pending Pod |
+| ai 노드 | 1 | 3 | Pending Pod |
+| system 노드 | 1 | 2 | Pending Pod |
+
+- Pod 최대값은 부하테스트 전 초기 상한입니다(Cloud Wiki 3.10). 바꾸면 `system/foundation/chart/values.yaml`의 ResourceQuota도 같이 늘려야 합니다. quota는 "최대 Pod 수 + 롤링 업데이트 여유 1개"가 들어가게 잡았습니다.
+- 노드 최대값은 Terraform `workers`의 `max`입니다.
+- 줄일 때: HPA는 5분(chat 15분, ai 10분) 동안 지켜본 뒤 1분에 1개씩 줄입니다. CA는 requests 합이 50% 미만인 노드가 10분 넘게 이어지면 Pod를 옮기고 노드를 줄입니다. PDB가 앱마다 최소 1개를 남깁니다.
+- Redis와 Vault Pod에는 `safe-to-evict: "false"`를 달아서, 이 둘이 있는 system 노드는 줄이지 않습니다.
+- 새 노드가 가입하려면 SSM의 가입 토큰이 살아 있어야 합니다. Terraform이 CP에 6시간마다 토큰을 갱신하는 timer를 설치합니다.
+
+확인:
+
+```bash
+kubectl get hpa -A
+kubectl -n kube-system logs deploy/cluster-autoscaler --tail=50
+kubectl -n kube-system get configmap cluster-autoscaler-status -o yaml
+```
 
 ## 차트 작성 규칙
 
@@ -200,10 +237,10 @@ helm template backend general/backend/chart | kubectl apply --dry-run=server -f 
 ## 알려진 제약
 
 - **Pod별 IAM 역할(IRSA)이 없습니다.** EBS CSI와 Loki는 system 노드의 EC2 역할을 같이 씁니다. system 노드의 다른 Pod도 같은 권한을 볼 수 있습니다.
-- **Vault는 1개 Pod이고 수동 unseal입니다.** 재시작하면 서비스 시크릿 갱신이 멈춥니다(이미 만들어진 Secret은 그대로 있음). TLS 인증서는 self-signed 365일짜리입니다.
+- **Vault는 1개 Pod입니다.** AWS KMS로 자동 unseal하므로 재시작돼도 사람이 손댈 필요는 없지만, 뜨는 동안에는 시크릿 갱신이 잠깐 멈춥니다(이미 만들어진 Secret은 그대로 있음). TLS 인증서는 self-signed 365일짜리입니다.
 - **Redis는 1개 Pod입니다.** AOF(`everysec`)로 키는 남지만, 죽어 있는 동안 Pub/Sub 메시지는 사라집니다.
 - **Prometheus 도메인에 인증이 없습니다.** ALB나 Envoy에서 IP 제한을 거는 게 좋습니다.
-- **metrics-server**는 kubelet 인증서를 검증합니다. kubelet에 `serverTLSBootstrap`을 켜기 전에는 `kubectl top`이 안 됩니다.
+- **metrics-server는 kubelet 인증서를 검증하지 않습니다**(`--kubelet-insecure-tls`). 검증하려면 노드가 늘 때마다 CSR을 승인해야 해서 자동 증설과 맞지 않습니다. 보안 그룹이 kubelet 포트를 system 노드와 CP에만 엽니다.
 - kube-prometheus-stack에서 controller-manager, scheduler, etcd, kube-proxy 수집은 꺼 뒀습니다. kubeadm 기본값이 127.0.0.1에만 메트릭을 열기 때문입니다.
 - gp3 StorageClass는 `Retain`입니다. PVC를 지워도 EBS 볼륨이 남으니 직접 정리해야 합니다.
 - Loki 로그 보존 기간은 7일, Prometheus는 3일(8GB)입니다.

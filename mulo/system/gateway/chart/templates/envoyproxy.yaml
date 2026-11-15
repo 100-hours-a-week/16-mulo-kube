@@ -8,8 +8,21 @@ spec:
   provider:
     type: Kubernetes
     kubernetes:
+      # Envoy 수는 HPA가 정합니다. HPA가 있으면 envoyDeployment.replicas는 무시되므로 적지 않습니다.
+      envoyHpa:
+        minReplicas: {{ .Values.envoy.autoscaling.minReplicas }}
+        maxReplicas: {{ .Values.envoy.autoscaling.maxReplicas }}
+        metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: {{ .Values.envoy.autoscaling.targetCPUUtilization }}
+      # 노드 교체(CA scale-down, drain) 중에도 Envoy가 최소 1개는 남게 합니다.
+      envoyPDB:
+        minAvailable: {{ .Values.envoy.pdbMinAvailable }}
       envoyDeployment:
-        replicas: {{ .Values.envoy.replicas }}
         pod:
           nodeSelector:
             workload: general

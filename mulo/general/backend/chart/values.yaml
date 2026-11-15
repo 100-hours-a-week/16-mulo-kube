@@ -4,8 +4,16 @@ namespace: "backend"
 app:
   # 리소스 이름과 Pod의 app 라벨이다. Service selector도 같은 값을 참조한다.
   name: "backend"
-# 초기 Pod 수다. 자동 확장 템플릿은 포함하지 않는다.
-replicaCount: 1
+# Pod 수는 HPA가 정한다(Cloud Wiki 3.10). 장애 대비로 최소 2개에서 시작한다.
+# maxReplicas는 부하테스트 전 초기 상한이다. 측정 결과를 보고 조정하고, foundation의 ResourceQuota도 같이 맞춘다.
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 4
+  # Pod CPU 사용률(requests 대비 %)이 이 값을 넘으면 늘린다.
+  targetCPUUtilization: 70
+  scaleDownStabilizationSeconds: 300
+  # 노드를 비울 때 최소 이만큼은 살아 있게 한다.
+  pdbMinAvailable: 1
 # Ready가 된 뒤 안정 상태로 인정할 때까지의 시간(초, 0 이상).
 minReadySeconds: 5
 # 롤백에 남겨 둘 ReplicaSet 수(정수).
