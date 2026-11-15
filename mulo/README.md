@@ -1,6 +1,6 @@
 # MULO Helm
 
-계정 `840255883218`, 서울 리전, Kubernetes `1.36.6`과 현재 워커 4대 구성을 기준으로 values 20개를 작성했다.
+계정 `840255883218`, 서울 리전, Kubernetes `1.36.6`과 현재 워커 4대 구성을 기준으로 공식 차트 values 10개와 로컬 차트 8개를 작성했다.
 GitHub를 설정 원본으로 사용한다. CP의 파일은 초기 설치에 사용하는 Git 작업 사본이며, 이후 변경도 커밋·푸시하고 Argo CD로 동기화한다.
 
 **워커 ECR 설정부터 진행하는 경우:** [1. Mac에서 푸시](#1-로컬-mac에서-실행--설치-스크립트를-git에-올리기) → [2. 워커에서 실행](#2-워커-노드에서-실행--cp1에서-실행하지-않기) → [3. CP1에서 확인](#3-cp1에서-실행--방금-작업한-워커-확인) → [4. CP1에서 Helm 설치](#4-cp1에서-실행--helm-초기-설치와-gitops-전환).
@@ -13,10 +13,10 @@ GitHub를 설정 원본으로 사용한다. CP의 파일은 초기 설치에 사
 - Redis는 system 노드에 StatefulSet 1개로 실행하고 gp3 PVC 5Gi와 AOF를 사용한다. 초기에는 무인증이며 접근 제한은 별도로 관리하는 Calico 정책에서 적용한다. Redis용 Secret은 필요 없다.
 - 채팅 서버 간 Redis Pub/Sub 공유는 `CHAT_DELIVERY_ENABLED=true`로 활성화한다. 앱 알림의 Redis 연동은 아직 미구현이므로 별도 설정을 추가하지 않는다.
 - Argo CD·Grafana·Prometheus는 HTTPS 관리 도메인을 사용한다. 추가 접근 제어는 사용자가 나중에 구성한다.
-- 앱 replicas는 1이다. HPA·KEDA ScaledObject·CronJob·앱 PDB 템플릿은 초기 구성에서 제외했다. Argo CD의 ApplicationSet·SSO·알림도 초기에는 켜지 않는다.
+- 앱 replicas는 1이다. HPA·CronJob·앱 PDB 템플릿은 초기 구성에서 제외했다. KEDA와 Cluster Autoscaler는 사용할 대상이 없어 설치 values를 삭제했다. 필요해지면 그때 추가한다. Argo CD의 ApplicationSet·SSO·알림도 초기에는 켜지 않는다.
 - Calico 설치와 모든 NetworkPolicy는 이 저장소 밖에서 관리한다. RabbitMQ 리소스는 포함하지 않는다.
 
-직접 작성한 차트는 `.tpl` 파일과 `include` helper 없이 YAML에서 `{{ .Values... }}`를 직접 참조한다. `if/else/with` 분기와 `range` 반복을 사용하지 않으며, namespace, quota, PriorityClass, 플랫폼 Secret도 반복문 없이 하나씩 직접 작성한다. 따옴표 함수(`quote`)도 쓰지 않고, 문자열이어야 하는 값만 YAML에 따옴표를 직접 적는다. 공식 차트의 `enabled` 값은 해당 차트의 설정 항목으로 유지한다. `toYaml` 없이 자원·배치·라우팅 항목을 YAML 필드별로 작성한다. 빈 annotations는 제외하고, Cluster Autoscaler·Loki의 Pod IAM 역할 연결을 유지한다. EBS CSI는 초기 구축에서 system EC2 역할을 사용한다.
+직접 작성한 차트는 `.tpl` 파일과 `include` helper 없이 YAML에서 `{{ .Values... }}`를 직접 참조한다. `if/else/with` 분기와 `range` 반복을 사용하지 않으며, namespace, quota, PriorityClass, 플랫폼 Secret도 반복문 없이 하나씩 직접 작성한다. 따옴표 함수(`quote`)도 쓰지 않고, 문자열이어야 하는 값만 YAML에 따옴표를 직접 적는다. 공식 차트의 `enabled` 값은 해당 차트의 설정 항목으로 유지한다. `toYaml` 없이 자원·배치·라우팅 항목을 YAML 필드별로 작성한다. 빈 annotations는 제외한다. kubeadm에는 IRSA webhook이 없어 role-arn 주석이 동작하지 않으므로, EBS CSI와 Loki는 초기 구축에서 system EC2 역할을 사용한다.
 
 ## 실제 설치 전에 남은 작업
 
@@ -25,10 +25,9 @@ GitHub를 설정 원본으로 사용한다. CP의 파일은 초기 설치에 사
 | 항목 | 현재 상태와 필요한 작업 |
 |---|---|
 | ECR | 네 앱의 게시된 이미지 태그를 각 values에 반영했다. 워커의 ECR 이미지 Pull 인증을 준비한다. |
-| Pod IAM/OIDC | OIDC provider와 아래 Pod 역할이 아직 없다. kubeadm issuer/JWKS, IAM 신뢰 정책, projected token과 AWS SDK 환경변수 주입을 준비한다. |
+| Pod IAM/OIDC | 초기 구축에서는 사용하지 않는다. 나중에 Pod 전용 IAM으로 바꿀 때 kubeadm issuer/JWKS, IAM 신뢰 정책, projected token 주입을 준비한다. |
 | EBS CSI 역할 | 초기 구축은 `mulo-v3-prod-system` EC2 역할을 사용한다. 아래 스토리지 절에서 Terraform 정책과 기존 system EC2의 메타데이터 설정을 적용한 뒤 CSI를 설치한다. |
-| Autoscaler 역할 | 예정 ARN은 `arn:aws:iam::840255883218:role/mulo-v3-prod-autoscaler`다. 새 워커의 join·ECR bootstrap과 역할별 max 설정은 IaC 코드에 반영했다. 실제 AWS 적용은 별도다. |
-| Loki 역할 | 예정 ARN은 `arn:aws:iam::840255883218:role/mulo-v3-prod-loki`다. 실제 Loki S3 버킷 접근 권한이 필요하다. |
+| Loki S3 권한 | Loki는 system 노드에서 실행되고 system EC2 역할(IMDSv2, hop limit 2)로 S3에 접근한다. `mulo-v3-prod-system` 역할에 `mulo-v3-prod-840255883218-loki` 버킷의 `s3:ListBucket`·`GetObject`·`PutObject`·`DeleteObject` 권한을 Terraform으로 추가한다. 로그 보존 기간은 7일(168h)이다. |
 | HTTPS | 조회 당시 서울 ACM에 발급·검증 중 인증서가 없고, ALB에는 HTTP 80 리스너만 있었다. 도메인을 포함하는 인증서와 ALB 443 리스너를 먼저 준비한다. |
 | 관리 도메인 전달 | IaC의 `platform_services`에 등록한 호스트가 ALB에서 Envoy 대상 그룹으로 전달되는지, DNS가 해당 ALB를 가리키는지 확인한다. |
 | Vault TLS | `vault/vault-server-tls` Secret과 `external-secrets/vault-ca` Secret을 준비한다. 인증서·개인키·root token·unseal key는 Git에 넣지 않는다. |
@@ -51,7 +50,7 @@ AI provider·RunPod 주소·선택 API 키는 앱 이미지를 배포하는 단�
 
 ### backend의 Vault 연결
 
-`general/backend/chart/templates/deployment.yaml`에는 Vault에서 동기화한 Secret을 읽는 `envFrom.secretRef`를 추가했다. 이름 `<release>-be`, 노드 배치, 자원, probe 설정은 유지한다.
+`general/backend/chart/templates/deployment.yaml`에는 Vault에서 동기화한 Secret을 읽는 `envFrom.secretRef`를 추가했다. Deployment 이름은 다른 앱과 같이 `app.name`(`backend`)을 사용하고, 전용 ServiceAccount(토큰 자동 마운트 끔)·securityContext·노드 배치를 values로 관리한다.
 연결 순서는 `Vault KV → mulo-vault ClusterSecretStore → backend ExternalSecret → backend-secrets → backend 환경변수`다. backend Pod가 Vault root token을 직접 사용하는 방식은 아니다.
 
 Vault의 `secret` KV mount 아래에 다음 값을 먼저 등록한다. 실제 비밀번호·토큰은 values나 Git에 적지 않는다.
@@ -71,7 +70,7 @@ kubectl get externalsecret backend-secrets --namespace backend
 kubectl describe externalsecret backend-secrets --namespace backend
 ```
 
-Vault 값을 변경하면 ESO 동기화 완료 후 Pod를 재시작해야 환경변수가 갱신된다. Helm release 이름을 `backend`로 설치한 경우에는 `kubectl rollout restart deployment/backend-be --namespace backend`를 사용한다.
+Vault 값을 변경하면 ESO 동기화 완료 후 Pod를 재시작해야 환경변수가 갱신된다. `kubectl rollout restart deployment/backend --namespace backend`를 사용한다.
 Deployment는 spec.replicas를 계속 출력하므로 향후 HPA를 사용할 때 GitOps 동기화 정책도 함께 검토한다.
 
 ## Namespace와 경로
@@ -90,11 +89,10 @@ Deployment는 spec.replicas를 계속 출력하므로 향후 HPA를 사용할 �
 | argocd | `system/argocd` |
 | vault | `system/vault` |
 | external-secrets | `system/external-secrets`, `system/external-secrets/store` |
-| keda | `system/autoscaling/keda` |
 | monitoring | `system/monitoring/*` |
 
-foundation이 위 namespace 12개와 PriorityClass·앱 ResourceQuota·gp3 StorageClass를 만든다.
-EBS CSI·Metrics Server·Cluster Autoscaler는 기존 kube-system을 사용한다. Calico namespace는 별도로 관리한다.
+foundation이 위 namespace 11개와 PriorityClass·앱 ResourceQuota·gp3 StorageClass를 만든다.
+EBS CSI·Metrics Server(`system/metrics-server`)는 기존 kube-system을 사용한다. Calico namespace는 별도로 관리한다.
 일반 앱과 edge는 general, chat은 chat, AI는 ai, 운영 도구는 system 노드의 workload 라벨을 선택한다.
 
 ## 관리 도메인과 Gateway
@@ -229,8 +227,6 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add grafana-community https://grafana-community.github.io/helm-charts
 helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-helm repo add autoscaler https://kubernetes.github.io/autoscaler
-helm repo add kedacore https://kedacore.github.io/charts
 helm repo update
 
 helm upgrade --install foundation system/foundation/chart --namespace default --wait
@@ -242,6 +238,20 @@ kubectl -n argocd get pods -o wide
 도메인 HTTPS를 준비하기 전의 관리자 점검은 CP의 loopback으로 port-forward하고 SSM 터널을 통해 접속한다.
 현재 Argo CD 백엔드는 HTTP 모드이므로 bootstrap 점검은 `kubectl -n argocd port-forward svc/argocd-server 8080:80`이다.
 도메인으로 정상 접속한 뒤에는 values의 HTTPS URL을 사용한다.
+
+### Argo CD Application 등록 (app-of-apps)
+
+`system/argocd/root-app.yaml`이 `system/argocd/apps/` 아래 Application 19개를 관리한다. 파일 이름 앞의 숫자와 `sync-wave`가 생성 순서다(foundation → CSI·Envoy Gateway·ESO·Metrics Server → Vault·Redis·Gateway·Argo CD → 관측 → 앱).
+release 이름은 위 Helm 명령과 같게 지정했으므로, Helm으로 먼저 설치한 리소스도 이름이 그대로 이어진다. Argo CD가 소유한 뒤에는 `helm upgrade`·`helm uninstall`을 실행하지 않는다.
+Vault는 Pod가 재시작되면 수동 unseal이 필요하므로 자동 동기화하지 않는다. 나머지는 자동 동기화·prune·selfHeal과 재시도를 사용한다.
+
+```sh
+# 실행 장소: CP1. 위 Helm 설치로 Argo CD가 준비된 뒤 한 번만 실행한다.
+kubectl apply -f /home/16-mulo-kube/mulo/system/argocd/root-app.yaml
+kubectl -n argocd get applications
+```
+
+Argo CD 자체도 `20-argocd.yaml`로 관리되며, 이때부터는 bootstrap-values 없이 기본 values로 HTTPRoute까지 만든다.
 
 ### 스토리지와 Vault
 
@@ -484,17 +494,18 @@ kubectl wait --for=delete pod --selector app=redis --namespace redis --timeout=1
 
 전환 후 `kubectl get statefulset,pod,pvc --namespace redis`로 `redis-0`과 PVC를 확인한다. 이후 redis.conf 값을 바꾸면 `kubectl rollout restart statefulset/redis --namespace redis`로 재시작해 반영한다. StatefulSet이나 Helm release를 지워도 데이터 PVC는 자동 삭제되지 않는다.
 
-Grafana는 Vault의 관리자 Secret 동기화 후 설치한다. Loki의 S3 Pod IAM 권한은 별도로 필요하고, Prometheus·Loki PVC에는 EBS CSI가 필요하다. system 역할에 추가한 EBS 권한으로 Loki의 S3 인증까지 해결되는 것은 아니다.
+Grafana는 Vault의 관리자 Secret 동기화 후 설치한다. Loki의 S3 권한은 system EC2 역할에 별도로 추가해야 하고(EBS 권한과 별개), Prometheus·Loki PVC에는 EBS CSI가 필요하다.
 Grafana의 이전 `grafana/grafana 10.5.15`는 deprecated 상태다. 유지보수 저장소인 `grafana-community/grafana 10.7.0`으로 옮겼고 Grafana 앱 버전 12.3.1은 유지했다. 기존 values의 관리자 Secret·HTTPS Route·system 노드 배치를 다시 검증했다. Loki·Alloy는 기존 grafana 저장소를 사용한다. [이전 안내](https://github.com/grafana/helm-charts/blob/main/charts/grafana/README.md)
 Alloy의 수집 설정은 values에 포함했다. Prometheus의 기본 Kubernetes 수집과 별개로 앱 수집에는 실제 메트릭 endpoint와 ServiceMonitor가 필요하다.
-Metrics Server·Autoscaler·KEDA의 values도 작성했다. 공식 차트 버전은 Metrics Server `3.14.0`, Cluster Autoscaler `9.60.0`, KEDA `2.21.0`을 사용한다. 나머지 공식 차트 버전은 위 설치 명령의 `--version`에 명시했다. 자동 확장은 현재 비활성 상태로 시작한다.
+Metrics Server는 공식 차트 `3.14.0`을 사용한다. kubelet TLS 검증을 끄지 않았으므로 kubelet의 `serverTLSBootstrap: true`와 CSR 승인을 먼저 준비해야 `kubectl top`이 동작한다.
+kube-prometheus-stack의 controller-manager·scheduler·etcd·kube-proxy 수집은 kubeadm 기본값(127.0.0.1 바인딩)에서 항상 실패하므로 꺼 두었다.
 
 ## 검증과 제한
 
 워커 ECR 설치 스크립트는 설치 파일 누락·재실행·CP 차단·인증 실패·재시작 실패·도구 자동 설치 등을 모의 환경에서 13개 시나리오로 검증했다. Terraform 검증과 모의 테스트 22개도 통과했다. 최신 실제 AWS plan은 system EBS IAM 정책 연결 1개 추가와 Launch Template 4개·ASG 4개 변경이며, EC2 교체·삭제는 없다. EBS CSI 공식 차트 2.68.0도 lint·렌더링해 system 배치, EC2 역할 인증 설정, 노드 hostNetwork, 고정 키 참조가 없는 것을 확인했다. 실제 워커에서의 설치·이미지 Pull과 AWS apply는 이 문서의 실행 단계에서 확인한다.
 
-Kubernetes 1.36.6 기준으로 로컬 차트 8개와 공식 차트 12개를 기본 values 그대로 lint·렌더링했다. 별도 bootstrap override는 Argo CD 초기 설치에서 HTTPRoute가 생성되지 않는지 확인했다.
-namespace 12개, 관리 UI Route의 Service·포트·Gateway 참조, Redis StatefulSet·PVC·무인증 구성, Vault의 system 배치·PVC, 정책 미생성을 확인했다.
+Kubernetes 1.36.6 기준으로 로컬 차트 8개와 공식 차트 10개를 기본 values 그대로 lint·렌더링했다. 별도 bootstrap override는 Argo CD 초기 설치에서 HTTPRoute가 생성되지 않는지 확인했다.
+namespace 11개, 관리 UI Route의 Service·포트·Gateway 참조, Redis StatefulSet·PVC·무인증 구성, Vault의 system 배치·PVC, 정책 미생성을 확인했다.
 Redis 전환 후 로컬 차트 8개를 다시 lint·렌더링했고, 임시 로컬 Redis에서 AOF 기록 후 강제 종료·재실행 시 키 복구를 확인했다. 실제 배포 이미지와 EBS 연결 검증은 클러스터 설치 후 진행한다.
-backend Deployment에는 요청에 따라 Vault Secret을 읽는 envFrom.secretRef만 추가했다. 이름·배치·자원·probe 설정은 기존과 동일하다. 실제 클러스터에 설치하거나 AWS 리소스를 변경하지 않았다.
+backend 차트는 ai·chat·frontend와 같은 구조(ServiceAccount·securityContext·values 기반 배치)로 맞췄다. 실제 클러스터에 설치하거나 AWS 리소스를 변경하지 않았다.
 설정된 주요 system controller의 requests 합계는 약 1.23 CPU / 3456MiB이며, DaemonSet·노드 예약분·일부 생성 sidecar를 포함한 실제 사용량 검증은 설치 후 별도로 수행한다.

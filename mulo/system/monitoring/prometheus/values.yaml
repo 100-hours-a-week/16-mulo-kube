@@ -2,6 +2,17 @@
 # kube-prometheus-stack 차트. 별도 Grafana 차트와 중복 설치하지 않도록 enabled를 결정한다.
 grafana:
   enabled: false
+# kubeadm은 controller-manager·scheduler·etcd·kube-proxy의 메트릭을 127.0.0.1에만 연다.
+# 노드 IP로 수집할 수 없어 대상이 항상 down이 되므로 수집을 끈다.
+# 수집하려면 각 구성요소의 bind-address(etcd는 listen-metrics-urls)를 노드 IP로 바꾼 뒤 다시 켠다.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
 prometheusOperator:
   # 네트워크 정책은 Calico에서 별도로 관리한다.
   networkPolicy:

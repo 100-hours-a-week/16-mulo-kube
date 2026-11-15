@@ -31,7 +31,7 @@ service:
   # HTTPRoute·메트릭 설정에서 식별할 포트 이름.
   portName: "http"
 configMap:
-  # backend 원본 Deployment도 이 이름으로 ConfigMap을 참조한다.
+  # Deployment의 envFrom이 이 이름으로 ConfigMap을 참조한다.
   name: "ai-api-config"
   # AI main의 launcher는 한 이미지에서 Gateway·모더레이션·임베딩·Worker를 실행한다. 임의로 여러 Deployment로 나누지 않는다.
   # 앱 배포 단계에서 실제 LLM provider·RunPod 주소·선택 API 키를 AI 팀 설정과 맞춘다. 현재는 이미지를 배포하지 않는다.

@@ -58,14 +58,11 @@ spec:
             capabilities:
               drop:
                 - {{ .Values.securityContext.dropCapability }}
-          # 기존 WebSocket 연결에 종료 유예를 준다.
+          # 기존 WebSocket 연결에 종료 유예를 준다. 이미지에 셸이 없어도 동작하는 sleep 동작을 사용한다.
           lifecycle:
             preStop:
-              exec:
-                command:
-                  - /bin/sh
-                  - -c
-                  - sleep {{ .Values.lifecycle.preStop.sleepSeconds }}
+              sleep:
+                seconds: {{ .Values.lifecycle.preStop.sleepSeconds }}
           startupProbe:
             httpGet:
               path: {{ .Values.probes.startup.path }}

@@ -3,15 +3,12 @@
 # ESO operator와 인증용 ServiceAccount를 둘 namespace.
 namespace: "external-secrets"
 storeName: "mulo-vault"
-# 이 Store를 참조할 수 있는 서비스 namespace 목록. 전체 namespace를 열지 않는다.
+# 이 Store를 참조할 수 있는 namespace 목록. 실제 ExternalSecret이 있는 namespace만 연다.
 allowedNamespaces:
-  frontend: "frontend"
   backend: "backend"
   chat: "chat"
   aiApi: "ai-api"
-  redis: "redis"
   monitoring: "monitoring"
-  argocd: "argocd"
 serviceAccountName: "vault-auth"
 vault:
   # 클러스터 내부 Vault Service 주소다. caProvider의 vault-ca Secret에는 같은 서버의 신뢰 CA를 넣는다.

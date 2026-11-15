@@ -1,4 +1,4 @@
-# namespace 12개는 templates/namespace.yaml에 직접 적었다. kube-system과 Calico namespace는 기존 관리 범위를 유지한다.
+# namespace 11개는 templates/namespace.yaml에 직접 적었다. kube-system과 Calico namespace는 기존 관리 범위를 유지한다.
 # PriorityClass는 클러스터 공통 리소스다. Pod에서 priorityClassName으로 선택한다.
 # preemptionPolicy는 Never 또는 PreemptLowerPriority.
 priorityClasses:

@@ -1,0 +1,19 @@
+# app-of-apps 루트. 최초 한 번 kubectl apply -f로 등록하면 apps/ 아래 Application을 Argo CD가 관리한다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mulo-root
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  source:
+    repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
+    targetRevision: main
+    path: mulo/system/argocd/apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
