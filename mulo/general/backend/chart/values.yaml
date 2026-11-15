@@ -45,21 +45,28 @@ configMap:
   # 현재 코드는 GCS SDK를 사용한다. 사용자는 S3 전환 후 배포하기로 했으므로 지원하지 않는 S3 환경변수는 임의로 추가하지 않는다.
   data:
     TZ: "Asia/Seoul"
-    SPRING_PROFILES_ACTIVE: "prod"
+    JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
+    SPRING_PROFILES_ACTIVE: "prod,popular-cache"
     SERVER_PORT: "8080"
-    DB_URL: "jdbc:mysql://mulo-v3-prod-api.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo_be?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul"
+    DB_URL: "jdbc:mysql://mulo-v3-prod-api.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo_be?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Seoul&sessionVariables=time_zone='Asia/Seoul'"
     DB_USERNAME: "mulo_admin"
     REDIS_HOST: "redis.redis.svc.cluster.local"
     REDIS_PORT: "6379"
+    MULO_REDIS_COMMANDTIMEOUT: "1s"
+    MULO_POPULAR_CACHE_ENABLED: "true"
+    MULO_POPULAR_CACHE_TTL: "300s"
     MEMORY_SEARCH_CONVERSATION_STORE: "redis"
     MEMORY_SEARCH_CONVERSATION_ENVIRONMENT: "prod"
-    # 음악 검색 요청 제한에 사용하는 Redis 키 접두사다. 비밀 값은 아니다.
-    MULO_MUSIC_SEARCH_RATE_LIMIT_NAMESPACE: "mulo:prod:music-search-rate-limit"
+    MULO_MUSIC_SEARCH_RATE_LIMIT_NAMESPACE: "mulo:music-search-rate-limit:prod"
     MULO_RABBITMQ_ENABLED: "false"
+    # AI DB 읽기 전용 계정(mulo_be_reader)을 새 RDS에 만든 뒤 true로 바꾸고 MULO_AI_DB_URL/USERNAME을 추가한다.
     MULO_AI_DB_ENABLED: "false"
+    MULO_GROUP_CHAT_ENABLED: "true"
+    MULO_GROUP_CHAT_START_DATE: "2026-10-22"
     AI_BASE_URL: "http://ai-api.ai-api.svc.cluster.local:80"
     AI_MOCK_ENABLED: "false"
     CHAT_SERVER_BASE_URL: "http://chat.chat.svc.cluster.local:80"
+    # GCS 변수는 S3 전환 시 코드와 함께 S3 설정으로 대체한다.
 resources:
   requests:
     # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.

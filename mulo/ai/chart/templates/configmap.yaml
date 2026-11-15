@@ -1,4 +1,4 @@
-# 비밀이 아닌 환경변수만 담는다. 비밀번호와 토큰은 여기에 넣지 않는다.
+# 비밀이 아닌 환경변수만 담는다. 비밀번호와 토큰은 여기에 넣지 않는다(Vault → ExternalSecret).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,10 +7,6 @@ metadata:
   labels:
     app: {{ .Values.app.name }}
 data:
-  TZ: "{{ .Values.configMap.data.TZ }}"
-  APP_ENV: "{{ .Values.configMap.data.APP_ENV }}"
-  AI_CLIENT_MODE: "{{ .Values.configMap.data.AI_CLIENT_MODE }}"
-  GATEWAY_PORT: "{{ .Values.configMap.data.GATEWAY_PORT }}"
-  MODERATION_PORT: "{{ .Values.configMap.data.MODERATION_PORT }}"
-  EMBEDDING_PORT: "{{ .Values.configMap.data.EMBEDDING_PORT }}"
-  RUN_WORKER: "{{ .Values.configMap.data.RUN_WORKER }}"
+  {{- range $k, $v := .Values.configMap.data }}
+  {{ $k }}: {{ $v | toString | quote }}
+  {{- end }}

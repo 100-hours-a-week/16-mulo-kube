@@ -52,6 +52,15 @@ configMap:
     MODERATION_PORT: "8001"
     EMBEDDING_PORT: "8002"
     RUN_WORKER: "true"
+    LLM_MODEL: "claude-sonnet-5"
+    TEXT_EMBEDDING_MODEL: "text-embedding-3-small"
+    TEXT_EMBEDDING_DIM: "1536"
+    CLIP_MODEL: "openai/clip"
+    CLIP_EMBEDDING_DIM: "768"
+    LOCAL_LLM_URL: "https://72c1cla8is49um-8000.proxy.runpod.net/v1/chat/completions"
+    LOCAL_LLM_MODEL: "gemma-3-12b"
+    BACKEND_INTERNAL_URL: "http://backend.backend.svc.cluster.local:80/"
+    # GCS_PHOTO_BUCKET은 S3 전환 시 코드와 함께 S3 설정으로 대체한다.
 resources:
   requests:
     # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.
@@ -104,28 +113,10 @@ externalSecrets:
     kind: "ClusterSecretStore"
   # 생성할 Kubernetes Secret 이름이다. Deployment가 이 값을 직접 참조한다.
   targetName: "ai-api-secrets"
-  # 서비스 사이에서 같은 값을 써야 하는 인증 토큰은 shared/service-auth의 같은 필드를 참조한다. 비밀 본문은 Git에 저장하지 않는다.
-  data:
-    databaseUrl:
-      secretKey: "DATABASE_URL"
-      remoteRef:
-        key: "mulo/prod/apps/ai"
-        property: "database_url"
-    internalToken:
-      secretKey: "INTERNAL_TOKEN"
-      remoteRef:
-        key: "mulo/prod/shared/service-auth"
-        property: "ai_internal_token"
-    anthropicApiKey:
-      secretKey: "ANTHROPIC_API_KEY"
-      remoteRef:
-        key: "mulo/prod/apps/ai"
-        property: "anthropic_api_key"
-    replicateApiToken:
-      secretKey: "REPLICATE_API_TOKEN"
-      remoteRef:
-        key: "mulo/prod/apps/ai"
-        property: "replicate_api_token"
+  # mulo/prod/apps/ai의 모든 키를 이름 그대로 환경변수로 넣는다. Vault에는 환경변수 이름(대문자)으로 저장한다.
+  # 서비스끼리 같은 값을 써야 하는 토큰(AI_INTERNAL_TOKEN 등)은 각 앱 경로에 같은 값으로 넣는다.
+  extractKey: "mulo/prod/apps/ai"
+  data: {}
 # 노드의 workload 라벨과 일치시킨다.
 nodeSelector:
   workload: "ai"
