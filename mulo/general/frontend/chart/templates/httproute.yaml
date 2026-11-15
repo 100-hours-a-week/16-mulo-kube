@@ -12,7 +12,9 @@ spec:
       namespace: {{ .Values.httpRoute.parentRef.namespace }}
       sectionName: {{ .Values.httpRoute.parentRef.sectionName }}
   hostnames:
-    - {{ .Values.httpRoute.hostnames.primary }}
+    {{- range $_, $h := .Values.httpRoute.hostnames }}
+    - {{ $h | quote }}
+    {{- end }}
   rules:
     - matches:
         - path:
