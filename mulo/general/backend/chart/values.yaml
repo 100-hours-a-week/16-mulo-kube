@@ -57,7 +57,7 @@ configMap:
   # Deployment의 envFrom이 이 이름으로 ConfigMap을 참조한다.
   name: "backend-config"
   # BE main의 application.yaml 및 application-prod.yaml이 읽는 환경변수 이름이다.
-  # 현재 코드는 GCS SDK를 사용한다. 사용자는 S3 전환 후 배포하기로 했으므로 지원하지 않는 S3 환경변수는 임의로 추가하지 않는다.
+  # 이미지 저장소는 S3다. 인증은 general 노드의 EC2 역할(mulo-v3-prod-api, images 버킷 전용 권한)로 하며 키를 넣지 않는다.
   data:
     TZ: "Asia/Seoul"
     JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
@@ -83,7 +83,10 @@ configMap:
     AI_BASE_URL: "http://ai-api.ai-api.svc.cluster.local:80"
     AI_MOCK_ENABLED: "false"
     CHAT_SERVER_BASE_URL: "http://chat.chat.svc.cluster.local:80"
-    # GCS 변수는 S3 전환 시 코드와 함께 S3 설정으로 대체한다.
+    # 이미지 업로드 저장소(S3). 버킷은 Terraform storage.tf의 images 버킷.
+    STORAGE_PROVIDER: "s3"
+    AWS_REGION: "ap-northeast-2"
+    AWS_S3_BUCKET: "mulo-v3-prod-840255883218-images"
 # 2026-11-19 VPA 추천 반영(VPA target 100m/561Mi, 기동 시 CPU 최대 0.65). 트래픽이 쌓이면 `kubectl -n <ns> describe vpa <앱>`의 Target으로 다시 맞춘다.
 # 메모리 request = VPA target 올림, CPU request = VPA target(기동 시 CPU 급증으로 KEDA가 늘지 않게 여유), limit = 기존 수준(JVM 힙이 limit 기준).
 resources:
