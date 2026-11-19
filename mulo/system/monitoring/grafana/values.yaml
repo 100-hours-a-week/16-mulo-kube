@@ -66,8 +66,8 @@ networkPolicy:
   enabled: false
 grafana.ini:
   server:
-    domain: "grafana.mulostudio.p-e.kr"
-    root_url: "https://grafana.mulostudio.p-e.kr"
+    domain: "grafana.ninejo.site"
+    root_url: "https://grafana.ninejo.site"
     serve_from_sub_path: false
   security:
     cookie_secure: true
@@ -82,7 +82,7 @@ route:
     kind: "HTTPRoute"
     labels: {}
     hostnames:
-      - "grafana.mulostudio.p-e.kr"
+      - "grafana.ninejo.site"
     parentRefs:
       -
         name: "mulo-gateway"
