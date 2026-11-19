@@ -1,0 +1,19 @@
+# VPA는 추천만 한다(recommender). Pod를 직접 바꾸는 updater/admission-controller는 끈다.
+# 이유: 앱 Pod 수는 KEDA(HPA)가 CPU 지표로 조절하므로, VPA가 같은 CPU requests를 자동으로 바꾸면 서로 충돌한다.
+# 추천값은 `kubectl get vpa -A`로 보고, 앱 차트 values.yaml의 resources에 사람이 반영한다.
+admissionController:
+  enabled: false
+updater:
+  enabled: false
+recommender:
+  enabled: true
+  replicas: 1
+  nodeSelector:
+    workload: "system"
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "system"
+      effect: "NoSchedule"
+crds:
+  enabled: true

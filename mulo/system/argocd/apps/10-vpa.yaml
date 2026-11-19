@@ -1,0 +1,38 @@
+# VPA recommender(추천 전용). 앱 request/limit 산정에 쓴다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vpa
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  sources:
+    - repoURL: https://kubernetes.github.io/autoscaler
+      chart: vertical-pod-autoscaler
+      targetRevision: 0.17.0
+      helm:
+        releaseName: vpa
+        valueFiles:
+        - $values/mulo/system/vpa/values.yaml
+    - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true

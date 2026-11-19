@@ -1,0 +1,18 @@
+# KEDA: Prometheus 지표로 앱 Pod 수를 조절한다(앱 차트의 ScaledObject). KEDA가 HPA를 대신 만든다.
+nodeSelector:
+  workload: "system"
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+resources:
+  operator:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+  metricServer:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+  webhooks:
+    requests: { cpu: "20m", memory: "64Mi" }
+    limits: { cpu: "200m", memory: "256Mi" }
