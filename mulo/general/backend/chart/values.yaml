@@ -16,6 +16,8 @@ autoscaling:
   keda:
     enabled: true
     prometheusAddress: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+    # 기동 직후 Pod의 CPU는 사용률 계산에서 뺀다(초).
+    startupGraceSeconds: 180
     # 요청 수(RPS) 기준 추가 지표: Pod 1개당 초당 요청이 이 값을 넘으면 늘린다(Actuator 메트릭, ServiceMonitor 필요).
     extraTriggers:
       - type: prometheus

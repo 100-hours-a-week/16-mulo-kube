@@ -16,6 +16,8 @@ autoscaling:
   keda:
     enabled: true
     prometheusAddress: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+    # 기동 직후 Pod의 CPU는 사용률 계산에서 뺀다(초).
+    startupGraceSeconds: 180
     extraTriggers: []
   # 노드를 비울 때 최소 이만큼은 살아 있게 한다.
   pdbMinAvailable: 1

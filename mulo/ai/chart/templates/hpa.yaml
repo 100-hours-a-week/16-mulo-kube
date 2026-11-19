@@ -33,14 +33,18 @@ spec:
               periodSeconds: 60
   triggers:
     # Pod CPU 사용률 평균(%) = 컨테이너 CPU 사용량 합 / CPU requests 합. HPA의 CPU Utilization과 같은 의미.
+    # 시작한 지 startupGraceSeconds가 안 된 Pod는 뺀다(JVM 기동 CPU 때문에 배포할 때마다 늘어나는 것 방지).
     - type: prometheus
       name: cpu-utilization
       metricType: Value
       metadata:
         serverAddress: {{ .Values.autoscaling.keda.prometheusAddress | quote }}
         query: |
-          100 * sum(rate(container_cpu_usage_seconds_total{namespace="{{ .Values.namespace }}",container="{{ .Values.app.name }}"}[2m]))
-          / sum(kube_pod_container_resource_requests{namespace="{{ .Values.namespace }}",container="{{ .Values.app.name }}",resource="cpu"} * on(pod) group_left() (kube_pod_status_phase{namespace="{{ .Values.namespace }}",phase="Running"} == 1))
+          100 * sum(rate(container_cpu_usage_seconds_total{namespace="{{ .Values.namespace }}",container="{{ .Values.app.name }}"}[2m])
+                and on(pod) ((time() - kube_pod_start_time{namespace="{{ .Values.namespace }}"}) > {{ .Values.autoscaling.keda.startupGraceSeconds }}))
+          / sum(kube_pod_container_resource_requests{namespace="{{ .Values.namespace }}",container="{{ .Values.app.name }}",resource="cpu"}
+                and on(pod) ((time() - kube_pod_start_time{namespace="{{ .Values.namespace }}"}) > {{ .Values.autoscaling.keda.startupGraceSeconds }})
+                and on(pod) (kube_pod_status_phase{namespace="{{ .Values.namespace }}",phase="Running"} == 1))
         threshold: {{ .Values.autoscaling.targetCPUUtilization | quote }}
     {{- with .Values.autoscaling.keda.extraTriggers }}
     {{- toYaml . | nindent 4 }}
