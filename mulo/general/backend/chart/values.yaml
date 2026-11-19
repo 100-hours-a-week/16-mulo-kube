@@ -59,8 +59,10 @@ configMap:
     MEMORY_SEARCH_CONVERSATION_ENVIRONMENT: "prod"
     MULO_MUSIC_SEARCH_RATE_LIMIT_NAMESPACE: "mulo:music-search-rate-limit:prod"
     MULO_RABBITMQ_ENABLED: "false"
-    # AI DB 읽기 전용 계정(mulo_be_reader)을 새 RDS에 만든 뒤 true로 바꾸고 MULO_AI_DB_URL/USERNAME을 추가한다.
-    MULO_AI_DB_ENABLED: "false"
+    # AI DB 읽기 전용 계정. 비밀번호는 SSM /mulo-v3-prod/db/ai/reader-password → Vault MULO_AI_DB_PASSWORD.
+    MULO_AI_DB_ENABLED: "true"
+    MULO_AI_DB_URL: "jdbc:postgresql://mulo-v3-prod-ai.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:5432/muro_ai?sslmode=require"
+    MULO_AI_DB_USERNAME: "mulo_be_reader"
     MULO_GROUP_CHAT_ENABLED: "true"
     MULO_GROUP_CHAT_START_DATE: "2026-10-22"
     AI_BASE_URL: "http://ai-api.ai-api.svc.cluster.local:80"
