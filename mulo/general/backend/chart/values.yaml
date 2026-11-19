@@ -82,11 +82,12 @@ configMap:
     AI_MOCK_ENABLED: "false"
     CHAT_SERVER_BASE_URL: "http://chat.chat.svc.cluster.local:80"
     # GCS 변수는 S3 전환 시 코드와 함께 S3 설정으로 대체한다.
+# 2026-11-19 VPA 추천 반영(VPA target 100m/561Mi, 기동 시 CPU 최대 0.65). 트래픽이 쌓이면 `kubectl -n <ns> describe vpa <앱>`의 Target으로 다시 맞춘다.
+# 메모리 request = VPA target 올림, CPU request = VPA target(기동 시 CPU 급증으로 KEDA가 늘지 않게 여유), limit = 기존 수준(JVM 힙이 limit 기준).
 resources:
   requests:
-    # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.
-    cpu: "300m"
-    memory: "768Mi"
+    cpu: "200m"
+    memory: "640Mi"
   limits:
     cpu: "1"
     memory: "1536Mi"

@@ -66,14 +66,15 @@ configMap:
     LOCAL_LLM_MODEL: "gemma-3-12b"
     BACKEND_INTERNAL_URL: "http://backend.backend.svc.cluster.local:80/"
     # GCS_PHOTO_BUCKET은 S3 전환 시 코드와 함께 S3 설정으로 대체한다.
+# 2026-11-19 VPA 추천 반영(VPA target 200m/2692Mi, 실측 메모리 최대 2715Mi). 트래픽이 쌓이면 `kubectl -n <ns> describe vpa <앱>`의 Target으로 다시 맞춘다.
+# 메모리 request = VPA target 올림, CPU request = VPA target(기동 시 CPU 급증으로 KEDA가 늘지 않게 여유), limit = 기존 수준(JVM 힙이 limit 기준).
 resources:
   requests:
-    # CPU는 "250m", 메모리는 "512Mi"처럼 단위를 포함한 문자열로 입력한다.
-    cpu: "1"
-    memory: "3500Mi"
+    cpu: "250m"
+    memory: "2816Mi"
   limits:
     cpu: "2"
-    memory: "6Gi"
+    memory: "5Gi"
 # 실제 앱 소스에서 확인한 포트와 헬스체크 경로다.
 probes:
   startup:
