@@ -42,7 +42,7 @@ image:
   # ECR 등 실제 이미지 저장소 URI. 태그를 포함하지 않는다.
   repository: "840255883218.dkr.ecr.ap-northeast-2.amazonaws.com/mulo-v3-prod/backend"
   # ECR에 존재하는 배포 이미지 태그다.
-  tag: "1.17.0"
+  tag: "1.18.0"
   # Always / IfNotPresent / Never 중 선택.
   pullPolicy: "IfNotPresent"
 service:
