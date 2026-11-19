@@ -1,0 +1,14 @@
+{{- if (.Values.gcpWif).enabled }}
+# GCP Workload Identity Federation 자격 증명 설정(external_account). 비밀이 들어 있지 않다.
+# AWS 노드의 IAM 역할로 GCP STS에서 토큰을 받는 방법만 적혀 있고, 키 파일이 아니다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.gcpWif.configMapName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+data:
+  credential-config.json: |
+{{ .Values.gcpWif.credentialConfig | indent 4 }}
+{{- end }}

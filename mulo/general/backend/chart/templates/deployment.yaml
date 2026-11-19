@@ -45,6 +45,12 @@ spec:
                 name: {{ .Values.configMap.name }}
             - secretRef:
                 name: {{ .Values.externalSecrets.targetName }}
+          {{- if (.Values.gcpWif).enabled }}
+          volumeMounts:
+            - name: gcp-wif
+              mountPath: {{ .Values.gcpWif.mountPath }}
+              readOnly: true
+          {{- end }}
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}
@@ -79,3 +85,9 @@ spec:
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+      {{- if (.Values.gcpWif).enabled }}
+      volumes:
+        - name: gcp-wif
+          configMap:
+            name: {{ .Values.gcpWif.configMapName }}
+      {{- end }}
