@@ -136,10 +136,10 @@ httpRoute:
     sectionName: "http"
   # 이 서비스가 소유한 실제 호스트 이름.
   hostnames:
-    primary: "api.ninejo.site"
-    secondary: "ninejo.site"
+    primary: "api.mulostudio.com"
+    secondary: "mulostudio.com"
     # 메인 도메인은 업체 DNS에서 CNAME을 걸 수 없어 www로 서비스한다.
-    www: "www.ninejo.site"
+    www: "www.mulostudio.com"
   # 이 서비스로 보낼 경로. type은 PathPrefix 또는 Exact.
   paths:
     first:

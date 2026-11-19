@@ -79,7 +79,7 @@ prometheus:
               storage: "10Gi"
     retentionSize: "8GB"
     # 실제 HTTPS 접속에는 ALB의 인증서·443 리스너와 관리 도메인 DNS가 필요하다.
-    externalUrl: "https://prometheus.ninejo.site"
+    externalUrl: "https://prometheus.mulostudio.com"
     routePrefix: "/"
   # 사용자가 접근 제어를 나중에 구성하기로 했다. 이 Route에는 인증·IP 제한을 추가하지 않는다.
   route:
@@ -89,7 +89,7 @@ prometheus:
       kind: "HTTPRoute"
       labels: {}
       hostnames:
-        - "prometheus.ninejo.site"
+        - "prometheus.mulostudio.com"
       parentRefs:
         -
           name: "mulo-gateway"

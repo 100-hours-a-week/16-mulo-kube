@@ -16,7 +16,7 @@ global:
 configs:
   cm:
     # 사용자가 선택한 HTTPS 관리 도메인이다. 실제 접속에는 ALB 인증서·443 리스너·DNS가 먼저 필요하다.
-    url: "https://argocd.ninejo.site"
+    url: "https://argocd.mulostudio.com"
   params:
     # 외부 HTTPS는 ALB에서 종료하고 Envoy→Argo CD는 내부 HTTP로 연결한다. 외부 HTTP 공개를 의미하지 않는다.
     server.insecure: true
@@ -43,7 +43,7 @@ server:
         namespace: "edge"
         sectionName: "http"
     hostnames:
-      - "argocd.ninejo.site"
+      - "argocd.mulostudio.com"
     rules:
       -
         matches:

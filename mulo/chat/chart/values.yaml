@@ -58,7 +58,7 @@ configMap:
     SPRING_PROFILES_ACTIVE: "prod"
     CHAT_DB_URL: "jdbc:mysql://mulo-v3-prod-chat.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo_chat?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul"
     CHAT_DB_USERNAME: "mulo_admin"
-    CHAT_WS_ALLOWED_ORIGINS: "https://ninejo.site,https://www.ninejo.site"
+    CHAT_WS_ALLOWED_ORIGINS: "https://mulostudio.com,https://www.mulostudio.com"
     CHAT_BACKEND_URL: "http://backend.backend.svc.cluster.local:80"
     CHAT_MODERATION_AI_BASE_URL: "http://ai-api.ai-api.svc.cluster.local:80"
     CHAT_DELIVERY_ENABLED: "true"
@@ -140,10 +140,10 @@ httpRoute:
     sectionName: "http"
   # 이 서비스가 소유한 실제 호스트 이름.
   hostnames:
-    primary: "api.ninejo.site"
-    secondary: "ninejo.site"
+    primary: "api.mulostudio.com"
+    secondary: "mulostudio.com"
     # 메인 도메인은 업체 DNS에서 CNAME을 걸 수 없어 www로 서비스한다.
-    www: "www.ninejo.site"
+    www: "www.mulostudio.com"
   # 이 서비스로 보낼 경로. type은 PathPrefix 또는 Exact.
   paths:
     first:
