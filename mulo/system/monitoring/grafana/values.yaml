@@ -96,3 +96,22 @@ route:
     filters: []
     httpsRedirect: false
     additionalRules: []
+# 대시보드는 Git(system/monitoring/grafana/dashboards/)에서 관리한다.
+# Grafana 시작 시 download-dashboards init 컨테이너가 GitHub raw URL에서 받아 프로비저닝한다(저장소 public 전제).
+# 수정은 JSON을 고쳐 main에 push한 뒤 Grafana Pod를 재시작한다(UI에서 고친 내용은 재시작 시 사라짐).
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: "mulo"
+        orgId: 1
+        folder: "MULO"
+        type: file
+        disableDeletion: true
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/mulo
+dashboards:
+  mulo:
+    mulo-backend:
+      url: "https://raw.githubusercontent.com/100-hours-a-week/16-mulo-kube/main/mulo/system/monitoring/grafana/dashboards/mulo-backend.json"

@@ -166,3 +166,9 @@ toleration:
   operator: "Equal"
   value: "general"
   effect: "NoSchedule"
+# Spring Actuator 메트릭 수집(ServiceMonitor). /actuator/prometheus는 클러스터 내부(Service 8080)로만 수집하고 외부 라우트에는 열지 않는다.
+serviceMonitor:
+  enabled: true
+  path: "/actuator/prometheus"
+  interval: "15s"
+  scrapeTimeout: "10s"

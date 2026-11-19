@@ -1,0 +1,23 @@
+{{- if .Values.serviceMonitor.enabled }}
+# Prometheus(kube-prometheus-stack)가 backend의 Spring Actuator 메트릭을 수집한다.
+# 수집 결과의 job 라벨은 Service 이름(backend)이 된다. Grafana "MULO 백엔드 모니터링" 대시보드가 이 라벨을 쓴다.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+    - port: {{ .Values.service.portName }}
+      path: {{ .Values.serviceMonitor.path }}
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+{{- end }}
