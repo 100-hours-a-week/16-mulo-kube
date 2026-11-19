@@ -200,3 +200,8 @@ vpa:
   maxAllowed:
     cpu: "2"
     memory: "3Gi"
+
+# GCP 자원(GCS)에 키 없이 접근할 때 쓰는 Workload Identity Federation 자격 증명 설정이다.
+# 기본은 꺼짐이다. 복제·카나리 기간에만 values-canary.yaml에서 켠다.
+gcpWif:
+  enabled: false

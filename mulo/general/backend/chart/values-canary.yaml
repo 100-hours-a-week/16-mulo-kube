@@ -1,0 +1,68 @@
+# 무중단 이전(GCP에서 AWS) 카나리 기간 전용 값이다. values.yaml 위에 겹쳐 쓴다.
+# 이 기간의 AWS Backend는 아직 GCP의 DB와 GCS를 그대로 쓴다. AWS RDS는 GCP를 따라가는 복제본(읽기 전용)이라 앱이 쓸 수 없다.
+# DB를 승격한 뒤에는 50-backend.yaml의 valueFiles에서 이 파일을 빼고, 이 파일도 지운다. 그러면 values.yaml의 최종 설정(RDS, S3)으로 돌아간다.
+# 근거와 순서는 ktb-final-muro 저장소의 docs/design/07-v3-무중단-마이그레이션 런북 v2 5.3, 0.4를 본다.
+
+configMap:
+  data:
+    # --- DB: GCP Cloud SQL (VPN 경유, 사설 IP) ---
+    DB_URL: "jdbc:mysql://10.91.0.6:3306/mulo?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Seoul&sessionVariables=time_zone='Asia/Seoul'"
+    DB_USERNAME: "fullstack"
+    MULO_AI_DB_URL: "jdbc:postgresql://10.91.0.7:5432/muro_ai"
+
+    # --- 같은 DB를 쓰는 동안 예약 작업은 GCP 한쪽에서만 돈다 (BE 2fec3f6 이후 이미지) ---
+    MULO_SCHEDULING_ENABLED: "false"
+    MULO_RABBITMQ_ENABLED: "false"
+    MULO_DAILY_SONG_SCHEDULER_ENABLED: "false"
+
+    # --- 이미지 저장소: GCS 그대로 (5.5a에서 s3로 바꾼다) ---
+    STORAGE_PROVIDER: "gcs"
+    GCP_PROJECT_ID: "project-7b071b48-8637-467a-80d"
+    GCS_BUCKET_NAME: "muro-bucket-1"
+    # 키 파일 없이 AWS 노드 IAM 역할로 서비스 계정 mulo-aws-backend-gcs의 권한을 빌려 쓴다(impersonation).
+    GOOGLE_APPLICATION_CREDENTIALS: "/etc/gcp/credential-config.json"
+    GCS_IMPERSONATE_SERVICE_ACCOUNT: "mulo-aws-backend-gcs@project-7b071b48-8637-467a-80d.iam.gserviceaccount.com"
+
+    # --- AI, Chat: 아직 GCP가 처리한다 (GCP 내부 로드밸런서, VPN 경유). 방화벽은 8000/8080/8081을 이미 열었다 ---
+    AI_BASE_URL: "http://10.20.0.27:8000"
+    CHAT_SERVER_BASE_URL: "http://10.20.0.59:8081"
+
+# --- 비밀: GCP DB 계정 비밀번호를 Vault의 별도 키에서 가져온다 ---
+# Vault mulo/prod/apps/backend 에 아래 두 키를 먼저 넣는다. 값은 GCP Secret Manager mulo-v2-backend-env 의
+# DB_PASSWORD, MULO_AI_DB_PASSWORD 와 같다. (Git에는 값을 적지 않는다)
+#   db_password_gcp, ai_db_password_gcp
+# 나머지 비밀(JWT_SECRET, 내부 토큰, 외부 API 키)은 GCP와 값이 같아야 한다. 런북 5.3 대조 절차를 본다.
+externalSecrets:
+  data:
+    dbPassword:
+      secretKey: "DB_PASSWORD"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "db_password_gcp"
+    aiDbPassword:
+      secretKey: "MULO_AI_DB_PASSWORD"
+      remoteRef:
+        key: "mulo/prod/apps/backend"
+        property: "ai_db_password_gcp"
+
+# GCS 접근용 Workload Identity Federation 설정. 비밀이 없다(대상 URL과 audience뿐이다).
+gcpWif:
+  enabled: true
+  configMapName: "gcp-wif-config"
+  mountPath: "/etc/gcp"
+  credentialConfig: |
+    {
+      "universe_domain": "googleapis.com",
+      "type": "external_account",
+      "audience": "//iam.googleapis.com/projects/953840519216/locations/global/workloadIdentityPools/aws-pool/providers/aws-provider",
+      "subject_token_type": "urn:ietf:params:aws:token-type:aws4_request",
+      "token_url": "https://sts.googleapis.com/v1/token",
+      "credential_source": {
+        "environment_id": "aws1",
+        "region_url": "http://169.254.169.254/latest/meta-data/placement/availability-zone",
+        "url": "http://169.254.169.254/latest/meta-data/iam/security-credentials",
+        "regional_cred_verification_url": "https://sts.{region}.amazonaws.com?Action=GetCallerIdentity&Version=2011-06-15",
+        "imdsv2_session_token_url": "http://169.254.169.254/latest/api/token"
+      },
+      "token_info_url": "https://sts.googleapis.com/v1/introspect"
+    }
