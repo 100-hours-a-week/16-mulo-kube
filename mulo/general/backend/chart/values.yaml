@@ -12,6 +12,19 @@ autoscaling:
   # Pod CPU 사용률(requests 대비 %)이 이 값을 넘으면 늘린다.
   targetCPUUtilization: 70
   scaleDownStabilizationSeconds: 300
+  # KEDA(ScaledObject)로 Prometheus 지표 기반 오토스케일링. false면 기존 CPU HPA를 쓴다.
+  keda:
+    enabled: true
+    prometheusAddress: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+    # 요청 수(RPS) 기준 추가 지표: Pod 1개당 초당 요청이 이 값을 넘으면 늘린다(Actuator 메트릭, ServiceMonitor 필요).
+    extraTriggers:
+      - type: prometheus
+        name: http-rps
+        metricType: AverageValue
+        metadata:
+          serverAddress: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+          query: sum(rate(http_server_requests_seconds_count{namespace="backend",job="backend",uri!~"/actuator.*"}[2m]))
+          threshold: "50"
   # 노드를 비울 때 최소 이만큼은 살아 있게 한다.
   pdbMinAvailable: 1
 # Ready가 된 뒤 안정 상태로 인정할 때까지의 시간(초, 0 이상).
@@ -172,3 +185,12 @@ serviceMonitor:
   path: "/actuator/prometheus"
   interval: "15s"
   scrapeTimeout: "10s"
+# VPA 추천(updateMode Off). 추천 범위의 하한/상한. 추천값을 보고 위 resources를 사람이 고친다.
+vpa:
+  enabled: true
+  minAllowed:
+    cpu: "100m"
+    memory: "512Mi"
+  maxAllowed:
+    cpu: "2"
+    memory: "3Gi"

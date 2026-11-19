@@ -1,5 +1,52 @@
-# CPU 사용률을 보고 Pod 수를 늘리고 줄인다. 늘린 Pod가 노드에 안 들어가면 Cluster Autoscaler가 노드를 늘린다.
-# Deployment에는 replicas를 적지 않는다. 적으면 Argo CD 동기화 때마다 HPA가 정한 수를 되돌린다.
+{{- if .Values.autoscaling.keda.enabled }}
+# KEDA가 Prometheus 지표로 Pod 수를 조절한다(KEDA가 이 이름의 HPA를 만들어 관리한다).
+# 기본 지표: Pod CPU 사용률(requests 대비 %, cAdvisor). 앱별 추가 지표는 autoscaling.keda.extraTriggers.
+# 늘린 Pod가 노드에 안 들어가면 Cluster Autoscaler가 노드를 늘린다.
+# Deployment에는 replicas를 적지 않는다. 적으면 Argo CD 동기화 때마다 KEDA가 정한 수를 되돌린다.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+  annotations:
+    # 예전 차트가 만든 같은 이름의 HPA를 KEDA가 넘겨받는다(HPA→KEDA 전환용).
+    scaledobject.keda.sh/transfer-hpa-ownership: "true"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.app.name }}
+  minReplicaCount: {{ .Values.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.autoscaling.maxReplicas }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      name: {{ .Values.app.name }}
+      behavior:
+        # 줄일 때는 부하가 다시 오를 수 있으니 기다렸다가 한 번에 1개씩 줄인다.
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDownStabilizationSeconds }}
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 60
+  triggers:
+    # Pod CPU 사용률 평균(%) = 컨테이너 CPU 사용량 합 / CPU requests 합. HPA의 CPU Utilization과 같은 의미.
+    - type: prometheus
+      name: cpu-utilization
+      metricType: Value
+      metadata:
+        serverAddress: {{ .Values.autoscaling.keda.prometheusAddress | quote }}
+        query: |
+          100 * sum(rate(container_cpu_usage_seconds_total{namespace="{{ .Values.namespace }}",container="{{ .Values.app.name }}"}[2m]))
+          / sum(kube_pod_container_resource_requests{namespace="{{ .Values.namespace }}",container="{{ .Values.app.name }}",resource="cpu"} * on(pod) group_left() (kube_pod_status_phase{namespace="{{ .Values.namespace }}",phase="Running"} == 1))
+        threshold: {{ .Values.autoscaling.targetCPUUtilization | quote }}
+    {{- with .Values.autoscaling.keda.extraTriggers }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- else }}
+# CPU 사용률을 보고 Pod 수를 늘리고 줄인다.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -22,10 +69,10 @@ spec:
           type: Utilization
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilization }}
   behavior:
-    # 줄일 때는 부하가 다시 오를 수 있으니 기다렸다가 한 번에 1개씩 줄인다.
     scaleDown:
       stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDownStabilizationSeconds }}
       policies:
         - type: Pods
           value: 1
           periodSeconds: 60
+{{- end }}
