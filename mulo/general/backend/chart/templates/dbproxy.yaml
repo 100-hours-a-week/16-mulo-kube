@@ -1,0 +1,185 @@
+{{- if (.Values.dbProxy).enabled }}
+# Backend DB 승격 때 쓰기를 잠깐 붙잡아 두기 위한 ProxySQL이다. 무중단 이전(GCP에서 AWS) 기간에만 쓴다.
+# 앱은 이 프록시의 6033 포트로 접속하고, 프록시가 실제 DB(GCP Cloud SQL, 승격 후 RDS)로 전달한다.
+# 이전이 끝나면 dbProxy.enabled를 끄고 앱의 DB_URL을 RDS 주소로 되돌린다. (docs: 5.5c Backend DB 승격 절차)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-db-proxy-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: backend-db-proxy
+data:
+  # @@이름@@ 자리는 시작할 때 환경변수 값으로 채운다(비밀번호를 ConfigMap에 넣지 않기 위해서다).
+  proxysql.cnf.tpl: |
+    datadir="/var/lib/proxysql"
+    admin_variables=
+    {
+      admin_credentials="admin:admin"
+      mysql_ifaces="127.0.0.1:6032"
+    }
+    mysql_variables=
+    {
+      threads={{ .Values.dbProxy.threads }}
+      max_connections=2048
+      interfaces="0.0.0.0:6033"
+      server_version="{{ .Values.dbProxy.serverVersion }}"
+      default_schema="information_schema"
+      have_ssl=true
+      default_charset="utf8mb4"
+      monitor_username="@@DB_USERNAME@@"
+      monitor_password="@@DB_PASSWORD@@"
+      ping_interval_server_msec=10000
+      connect_timeout_server_max={{ .Values.dbProxy.holdMaxMs }}
+      connect_retries_on_failure=100
+      connect_retries_delay=200
+      default_query_timeout=3600000
+      poll_timeout=2000
+    }
+    mysql_servers=
+    (
+      {
+        address="{{ .Values.dbProxy.server.host }}"
+        port={{ .Values.dbProxy.server.port }}
+        hostgroup=0
+        max_connections={{ .Values.dbProxy.server.maxConnections }}
+        use_ssl={{ .Values.dbProxy.server.useSsl }}
+        weight=1
+        compression=0
+      }
+    )
+    mysql_users=
+    (
+      {
+        username="@@DB_USERNAME@@"
+        password="@@DB_PASSWORD@@"
+        default_hostgroup=0
+        active=1
+        max_connections=2000
+        transaction_persistent=1
+      }
+    )
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-db-proxy
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: backend-db-proxy
+spec:
+  replicas: {{ .Values.dbProxy.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: backend-db-proxy
+  template:
+    metadata:
+      labels:
+        app: backend-db-proxy
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: {{ .Values.nodeSelector.workload }}
+      tolerations:
+        - key: {{ .Values.toleration.key }}
+          operator: {{ .Values.toleration.operator }}
+          value: {{ .Values.toleration.value }}
+          effect: {{ .Values.toleration.effect }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: backend-db-proxy
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: proxysql
+          image: "{{ .Values.dbProxy.image }}"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              # 비밀번호에 큰따옴표나 역슬래시가 있으면 설정 파일이 깨지므로 시작하지 않는다.
+              case "$DB_PASSWORD$DB_USERNAME" in *\"*|*\\*) echo "DB 계정 값에 사용할 수 없는 문자가 있다" >&2; exit 1;; esac
+              perl -pe 's/\@\@(\w+)\@\@/$ENV{$1}/ge' /config/proxysql.cnf.tpl > /var/lib/proxysql/proxysql.cnf
+              exec proxysql -f --idle-threads -c /var/lib/proxysql/proxysql.cnf
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.configMap.name }}
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecrets.targetName }}
+                  key: DB_PASSWORD
+          ports:
+            - name: mysql
+              containerPort: 6033
+          readinessProbe:
+            tcpSocket:
+              port: 6033
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 6033
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "{{ .Values.dbProxy.resources.cpu }}"
+              memory: "{{ .Values.dbProxy.resources.memory }}"
+            limits:
+              memory: "{{ .Values.dbProxy.resources.memoryLimit }}"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/proxysql
+      volumes:
+        - name: config
+          configMap:
+            name: backend-db-proxy-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-db-proxy
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: backend-db-proxy
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-db-proxy
+  ports:
+    - name: mysql
+      port: 6033
+      targetPort: 6033
+      protocol: TCP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-db-proxy
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: backend-db-proxy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend-db-proxy
+{{- end }}

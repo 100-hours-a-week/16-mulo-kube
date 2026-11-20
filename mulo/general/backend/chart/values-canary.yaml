@@ -3,6 +3,11 @@
 # DB를 승격한 뒤에는 50-backend.yaml의 valueFiles에서 이 파일을 빼고, 이 파일도 지운다. 그러면 values.yaml의 최종 설정(RDS, S3)으로 돌아간다.
 # 근거와 순서는 ktb-final-muro 저장소의 docs/design/07-v3-무중단-마이그레이션 런북 v2 5.3, 0.4를 본다.
 
+# Backend DB 승격 때 쓰기를 붙잡는 ProxySQL. 처음에는 배포만 하고 앱은 계속 DB에 직접 붙는다.
+# 앱을 프록시로 돌리는 것은 별도 변경(DB_URL)이다. 승격이 끝나면 끈다.
+dbProxy:
+  enabled: true
+
 configMap:
   data:
     # --- DB: GCP Cloud SQL (VPN 경유, 사설 IP) ---
