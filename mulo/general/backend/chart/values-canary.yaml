@@ -3,10 +3,11 @@
 # DB를 승격한 뒤에는 50-backend.yaml의 valueFiles에서 이 파일을 빼고, 이 파일도 지운다. 그러면 values.yaml의 최종 설정(RDS, S3)으로 돌아간다.
 # 근거와 순서는 ktb-final-muro 저장소의 docs/design/07-v3-무중단-마이그레이션 런북 v2 5.3, 0.4를 본다.
 
-# Backend DB 승격 때 쓰기를 붙잡는 ProxySQL. 처음에는 배포만 하고 앱은 계속 DB에 직접 붙는다.
-# 앱을 프록시로 돌리는 것은 별도 변경(DB_URL)이다. 승격이 끝나면 끈다.
+# Backend DB 승격 때 쓰기를 붙잡던 ProxySQL. 2026-11-21 02:05에 승격하고 03:10에 앱을 RDS 직접 연결로 돌려서 역할이 끝났다.
+# 끄면 ArgoCD(prune)가 프록시 Deployment, Service, ConfigMap, PDB를 지운다. 차트 템플릿(templates/dbproxy.yaml)은
+# 같은 일이 다시 필요할 때를 위해 남겨 둔다.
 dbProxy:
-  enabled: true
+  enabled: false
 
 # 승격 뒤 예약 작업은 AWS Backend에서 돈다. Backend 코드에 중복 실행 방지(ShedLock 등)가 없어서
 # 파드가 2개 이상이면 같은 작업이 여러 번 돈다. 전용 파드가 생길 때까지 파드를 1개로 고정한다.
