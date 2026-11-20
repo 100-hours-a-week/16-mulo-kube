@@ -120,6 +120,25 @@ probes:
     initialDelaySeconds: 0
     periodSeconds: 10
     failureThreshold: 3
+# Backend DB 승격 때 쓰기를 붙잡아 두는 ProxySQL. 무중단 이전 기간에만 values-canary.yaml에서 켠다.
+dbProxy:
+  enabled: false
+  image: "proxysql/proxysql:2.7.3"
+  replicas: 2
+  threads: 4
+  # 프록시가 클라이언트에 알리는 서버 버전. Connector/J가 이 값을 보고 동작을 정한다.
+  serverVersion: "8.4.0"
+  # 쓰기 보류 상한(ms). 서버가 없을 때 쿼리가 대기하는 최대 시간이다.
+  holdMaxMs: 60000
+  server:
+    host: "10.91.0.6"
+    port: 3306
+    useSsl: 1
+    maxConnections: 300
+  resources:
+    cpu: "100m"
+    memory: "128Mi"
+    memoryLimit: "512Mi"
 serviceAccount:
   name: "backend"
   # Kubernetes API 토큰이 필요한 앱만 true. 일반 앱은 false.
