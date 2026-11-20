@@ -112,13 +112,17 @@ probes:
     port: 8080
     initialDelaySeconds: 0
     periodSeconds: 10
-    failureThreshold: 3
+    # health가 DB를 확인한다. 노드 CPU가 몰리거나 DB가 잠깐 느려지면 1초(기본값)에는 정상 파드도 실패해서
+    # 여러 파드가 동시에 재시작하는 연쇄가 생긴다(2026-11-20 이전 작업 중 503 약 2분). 타임아웃과 허용 횟수를 늘린다.
+    timeoutSeconds: 5
+    failureThreshold: 6
   readiness:
     # 트래픽을 받을 수 있는지 판단하는 준비 확인 경로.
     path: "/actuator/health"
     port: 8080
     initialDelaySeconds: 0
     periodSeconds: 10
+    timeoutSeconds: 5
     failureThreshold: 3
 # Backend DB 승격 때 쓰기를 붙잡아 두는 ProxySQL. 무중단 이전 기간에만 values-canary.yaml에서 켠다.
 dbProxy:
