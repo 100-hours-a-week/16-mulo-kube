@@ -60,9 +60,8 @@ configMap:
     CHAT_DB_USERNAME: "mulo_admin"
     CHAT_WS_ALLOWED_ORIGINS: "https://mulostudio.com,https://www.mulostudio.com"
     CHAT_BACKEND_URL: "http://backend.backend.svc.cluster.local:80"
-    # AI DB 승격 전이라 AWS ai-api는 꺼 둔 상태다. 그동안 모더레이션은 GCP AI(내부 LB, VPN 경유)가 처리한다.
-    # AI를 AWS로 옮기면 이전 값 http://ai-api.ai-api.svc.cluster.local:80 으로 되돌린다.
-    CHAT_MODERATION_AI_BASE_URL: "http://10.20.0.27:8000"
+    # 모더레이션은 DB에 쓰지 않아서 AI DB 승격 전에도 AWS ai-api로 옮겼다(2026-11-21). 이전 값: http://10.20.0.27:8000 (GCP AI)
+    CHAT_MODERATION_AI_BASE_URL: "http://ai-api.ai-api.svc.cluster.local:80"
     CHAT_DELIVERY_ENABLED: "true"
     CHAT_REDIS_HOST: "redis.redis.svc.cluster.local"
     CHAT_REDIS_PORT: "6379"
