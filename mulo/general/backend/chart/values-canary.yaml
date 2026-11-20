@@ -17,6 +17,11 @@ configMap:
     # 승격 때 프록시가 쿼리를 잠깐 붙잡으면 연결이 묶인다. 풀이 바닥나지 않게 늘리고 대기 한도도 늘린다.
     SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
     SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: "30000"
+    # Flyway는 시작할 때 GET_LOCK을 걸어서, 그 연결이 ProxySQL의 서버 연결 하나에 계속 묶인다.
+    # 묶인 연결은 승격 때 쓰기를 붙잡아도 원래 DB로 쿼리를 보내므로 이전 기간에는 끈다.
+    # 스키마는 이미 최신이고 이 기간에는 마이그레이션이 있는 배포를 하지 않는다.
+    # 이전이 끝나고 이 파일을 빼면 values.yaml 기본값대로 다시 켜진다.
+    SPRING_FLYWAY_ENABLED: "false"
     MULO_AI_DB_URL: "jdbc:postgresql://10.91.0.7:5432/muro_ai"
 
     # --- 같은 DB를 쓰는 동안 예약 작업은 GCP 한쪽에서만 돈다 (BE 2fec3f6 이후 이미지) ---
