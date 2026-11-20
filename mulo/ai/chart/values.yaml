@@ -58,9 +58,8 @@ configMap:
     GATEWAY_PORT: "8000"
     MODERATION_PORT: "8001"
     EMBEDDING_PORT: "8002"
-    # 카나리 동안은 끈다. AI DB가 아직 GCP의 복제본이라 워커가 쓰면 복제가 깨진다(2026-11-20 오전에 겪음).
-    # AI DB를 승격한 뒤 "true"로 되돌린다. GCP AI 워커가 멈춘 것을 확인한 다음에만 켠다(두 워커가 동시에 돌면 안 된다).
-    RUN_WORKER: "false"
+    # AI DB 승격 뒤에 켠다. GCP AI가 멈춘 것을 확인하고 구독을 끊은 다음에만 머지한다(두 워커가 동시에 돌거나 복제본에 쓰면 안 된다).
+    RUN_WORKER: "true"
     LLM_MODEL: "claude-sonnet-5"
     TEXT_EMBEDDING_MODEL: "text-embedding-3-small"
     TEXT_EMBEDDING_DIM: "1536"
