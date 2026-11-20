@@ -8,6 +8,14 @@
 dbProxy:
   enabled: true
 
+# 승격 뒤 예약 작업은 AWS Backend에서 돈다. Backend 코드에 중복 실행 방지(ShedLock 등)가 없어서
+# 파드가 2개 이상이면 같은 작업이 여러 번 돈다. 전용 파드가 생길 때까지 파드를 1개로 고정한다.
+# (줄일 때 기다리지 않게 scaleDownStabilizationSeconds도 0으로 한다. 전용 스케줄러 파드가 생기면 되돌린다.)
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 1
+  scaleDownStabilizationSeconds: 0
+
 configMap:
   data:
     # --- DB: ProxySQL(backend-db-proxy)을 거쳐 GCP Cloud SQL(VPN 경유, 사설 IP)로 간다 ---
@@ -24,8 +32,8 @@ configMap:
     SPRING_FLYWAY_ENABLED: "false"
     MULO_AI_DB_URL: "jdbc:postgresql://10.91.0.7:5432/muro_ai"
 
-    # --- 같은 DB를 쓰는 동안 예약 작업은 GCP 한쪽에서만 돈다 (BE 2fec3f6 이후 이미지) ---
-    MULO_SCHEDULING_ENABLED: "false"
+    # --- DB 승격 뒤: GCP Backend를 멈췄으므로 예약 작업은 AWS Backend 파드 1개에서만 돈다 (BE 2fec3f6 이후 이미지) ---
+    MULO_SCHEDULING_ENABLED: "true"
     MULO_RABBITMQ_ENABLED: "false"
     MULO_DAILY_SONG_SCHEDULER_ENABLED: "false"
 
