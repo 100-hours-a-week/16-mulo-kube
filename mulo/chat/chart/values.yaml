@@ -149,6 +149,11 @@ httpRoute:
     first:
       type: "PathPrefix"
       value: "/ws"
+    # 채팅 REST API(방 정보, 메시지 목록·동기화, 참여, 나가기). 없으면 /api 규칙에 걸려 Backend로 가서 실패한다.
+    # Gateway API는 더 긴 경로를 우선하므로 Backend의 /api 규칙보다 이 규칙이 먼저 적용된다.
+    second:
+      type: "PathPrefix"
+      value: "/api/chat-rooms"
   # request/backendRequest 등의 duration. WebSocket은 실제 타임아웃 정책을 확인한다.
   timeouts:
     request: "0s"
