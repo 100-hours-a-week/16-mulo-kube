@@ -139,6 +139,7 @@ spec:
               cpu: "{{ .Values.dbProxy.resources.cpu }}"
               memory: "{{ .Values.dbProxy.resources.memory }}"
             limits:
+              cpu: "{{ .Values.dbProxy.resources.cpuLimit }}"
               memory: "{{ .Values.dbProxy.resources.memoryLimit }}"
           volumeMounts:
             - name: config

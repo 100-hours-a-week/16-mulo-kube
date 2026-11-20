@@ -138,6 +138,8 @@ dbProxy:
   resources:
     cpu: "100m"
     memory: "128Mi"
+    # 네임스페이스 ResourceQuota가 limits.cpu를 요구한다. 없으면 파드 생성이 거부된다.
+    cpuLimit: "500m"
     memoryLimit: "512Mi"
 serviceAccount:
   name: "backend"
