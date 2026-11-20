@@ -15,8 +15,9 @@ configMap:
     MULO_RABBITMQ_ENABLED: "false"
     MULO_DAILY_SONG_SCHEDULER_ENABLED: "false"
 
-    # --- 이미지 저장소: GCS 그대로 (5.5a에서 s3로 바꾼다) ---
-    STORAGE_PROVIDER: "gcs"
+    # --- 이미지 저장소: S3 (5.5a에서 gcs에서 전환). AWS_REGION, AWS_S3_BUCKET은 values.yaml 값을 쓴다 ---
+    # 5.5a: 사진 저장소를 GCS에서 S3로 전환한다(S3 복사 완료 후). 되돌리려면 "gcs"로 바꾼다. 아래 GCS 설정과 gcpWif는 되돌릴 때를 위해 남겨 둔다.
+    STORAGE_PROVIDER: "s3"
     GCP_PROJECT_ID: "project-7b071b48-8637-467a-80d"
     GCS_BUCKET_NAME: "muro-bucket-1"
     # 키 파일 없이 AWS 노드 IAM 역할로 서비스 계정 mulo-aws-backend-gcs의 권한을 빌려 쓴다(impersonation).
