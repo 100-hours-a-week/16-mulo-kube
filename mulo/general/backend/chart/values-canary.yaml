@@ -18,18 +18,11 @@ autoscaling:
 
 configMap:
   data:
-    # --- DB: ProxySQL(backend-db-proxy)을 거쳐 GCP Cloud SQL(VPN 경유, 사설 IP)로 간다 ---
-    # 직접 연결로 되돌리려면 호스트를 10.91.0.6:3306 으로 바꾼다. 승격 때 프록시 대상만 RDS로 바꾼다.
-    DB_URL: "jdbc:mysql://backend-db-proxy.backend.svc.cluster.local:6033/mulo?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Seoul&sessionVariables=time_zone='Asia/Seoul'"
+    # --- DB: 승격 뒤 RDS에 직접 붙는다(2026-11-21). DB_URL은 이 파일에서 덮어쓰지 않고 values.yaml의 RDS 주소를 쓴다. ---
+    # (이전 값: ProxySQL jdbc:mysql://backend-db-proxy.backend.svc.cluster.local:6033/mulo?... 쓰기 붙잡기용이라 승격과 함께 역할이 끝났다)
+    # 연결 풀(20, 30초)과 Flyway 끄기도 프록시 때문에 넣었던 것이라 뺐다. values.yaml 기본값(풀 3, 대기 5초, Flyway 켬)으로 돌아간다.
+    # 계정은 RDS에 만들어 둔 fullstack을 그대로 쓴다(비밀번호는 아래 db_password_gcp). 정식 계정(mulo_admin 등) 정리는 따로 한다.
     DB_USERNAME: "fullstack"
-    # 승격 때 프록시가 쿼리를 잠깐 붙잡으면 연결이 묶인다. 풀이 바닥나지 않게 늘리고 대기 한도도 늘린다.
-    SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
-    SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: "30000"
-    # Flyway는 시작할 때 GET_LOCK을 걸어서, 그 연결이 ProxySQL의 서버 연결 하나에 계속 묶인다.
-    # 묶인 연결은 승격 때 쓰기를 붙잡아도 원래 DB로 쿼리를 보내므로 이전 기간에는 끈다.
-    # 스키마는 이미 최신이고 이 기간에는 마이그레이션이 있는 배포를 하지 않는다.
-    # 이전이 끝나고 이 파일을 빼면 values.yaml 기본값대로 다시 켜진다.
-    SPRING_FLYWAY_ENABLED: "false"
     # AI DB는 2026-11-21 02:05에 RDS로 승격했다. MULO_AI_DB_URL은 이 파일에서 덮어쓰지 않고 values.yaml의 RDS 주소를 쓴다.
     # (이전 값: jdbc:postgresql://10.91.0.7:5432/muro_ai, GCP Cloud SQL. 승격 뒤에는 멈춘 옛 복사본이라 읽으면 새 투표 질문이 안 보인다)
 
