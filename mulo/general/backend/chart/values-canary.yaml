@@ -24,9 +24,10 @@ configMap:
     GOOGLE_APPLICATION_CREDENTIALS: "/etc/gcp/credential-config.json"
     GCS_IMPERSONATE_SERVICE_ACCOUNT: "mulo-aws-backend-gcs@project-7b071b48-8637-467a-80d.iam.gserviceaccount.com"
 
-    # --- AI, Chat: 아직 GCP가 처리한다 (GCP 내부 로드밸런서, VPN 경유). 방화벽은 8000/8080/8081을 이미 열었다 ---
+    # --- AI: 아직 GCP가 처리한다 (GCP 내부 로드밸런서, VPN 경유). 방화벽은 8000/8080/8081을 이미 열었다 ---
     AI_BASE_URL: "http://10.20.0.27:8000"
-    CHAT_SERVER_BASE_URL: "http://10.20.0.59:8081"
+    # --- Chat: 2026-11-20 AWS로 옮겼다. (이전 값: http://10.20.0.59:8081, GCP 내부 로드밸런서) ---
+    CHAT_SERVER_BASE_URL: "http://chat.chat.svc.cluster.local:80"
 
 # --- 비밀: GCP DB 계정 비밀번호를 Vault의 별도 키에서 가져온다 ---
 # Vault mulo/prod/apps/backend 에 아래 두 키를 먼저 넣는다. 값은 GCP Secret Manager mulo-v2-backend-env 의
