@@ -59,6 +59,19 @@ data:
         transaction_persistent=1
       }
     )
+    # Connector/J가 접속할 때 보내는 `SELECT @@session...` 문장을 ProxySQL이 사용자 변수로 오해해서
+    # 그 연결을 서버에 묶어 버린다(멀티플렉싱이 꺼진다). 승격 때 쓰기를 붙잡으려면 연결이 묶이지 않아야 하므로
+    # 이 문장은 멀티플렉싱을 끄지 않게 한다(multiplex=2).
+    mysql_query_rules=
+    (
+      {
+        rule_id=100
+        active=1
+        match_digest="^SELECT @@"
+        multiplex=2
+        apply=0
+      }
+    )
 ---
 apiVersion: apps/v1
 kind: Deployment
