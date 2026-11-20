@@ -20,6 +20,11 @@ spec:
         - path:
             type: {{ .Values.httpRoute.paths.first.type }}
             value: {{ .Values.httpRoute.paths.first.value }}
+        {{- with .Values.httpRoute.paths.second }}
+        - path:
+            type: {{ .type }}
+            value: {{ .value }}
+        {{- end }}
       timeouts:
         request: {{ .Values.httpRoute.timeouts.request }}
         backendRequest: {{ .Values.httpRoute.timeouts.backendRequest }}
