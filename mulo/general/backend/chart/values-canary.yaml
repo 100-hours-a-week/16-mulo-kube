@@ -30,7 +30,8 @@ configMap:
     # 스키마는 이미 최신이고 이 기간에는 마이그레이션이 있는 배포를 하지 않는다.
     # 이전이 끝나고 이 파일을 빼면 values.yaml 기본값대로 다시 켜진다.
     SPRING_FLYWAY_ENABLED: "false"
-    MULO_AI_DB_URL: "jdbc:postgresql://10.91.0.7:5432/muro_ai"
+    # AI DB는 2026-11-21 02:05에 RDS로 승격했다. MULO_AI_DB_URL은 이 파일에서 덮어쓰지 않고 values.yaml의 RDS 주소를 쓴다.
+    # (이전 값: jdbc:postgresql://10.91.0.7:5432/muro_ai, GCP Cloud SQL. 승격 뒤에는 멈춘 옛 복사본이라 읽으면 새 투표 질문이 안 보인다)
 
     # --- DB 승격 뒤: GCP Backend를 멈췄으므로 예약 작업은 AWS Backend 파드 1개에서만 돈다 (BE 2fec3f6 이후 이미지) ---
     MULO_SCHEDULING_ENABLED: "true"
@@ -63,11 +64,8 @@ externalSecrets:
       remoteRef:
         key: "mulo/prod/apps/backend"
         property: "db_password_gcp"
-    aiDbPassword:
-      secretKey: "MULO_AI_DB_PASSWORD"
-      remoteRef:
-        key: "mulo/prod/apps/backend"
-        property: "ai_db_password_gcp"
+    # MULO_AI_DB_PASSWORD는 이 파일에서 따로 매핑하지 않는다. Vault mulo/prod/apps/backend의 MULO_AI_DB_PASSWORD 키가
+    # dataFrom으로 그대로 들어온다(RDS의 mulo_be_reader 비밀번호). 이전 매핑: ai_db_password_gcp
 
 # GCS 접근용 Workload Identity Federation 설정. 비밀이 없다(대상 URL과 audience뿐이다).
 gcpWif:
