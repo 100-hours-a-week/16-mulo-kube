@@ -35,7 +35,8 @@ image:
   # ECR 등 실제 이미지 저장소 URI. 태그를 포함하지 않는다.
   repository: "840255883218.dkr.ecr.ap-northeast-2.amazonaws.com/mulo-v3-prod/ai"
   # ECR에 존재하는 배포 이미지 태그다.
-  tag: "1.12.0"
+  # dev-1.41.0은 main(1.12.0)에 CLIP RunPod 클라이언트 2커밋만 더한 develop 빌드다(2026-11-22). main에 릴리스되면 정식 태그로 바꾼다.
+  tag: "dev-1.41.0"
   # Always / IfNotPresent / Never 중 선택.
   pullPolicy: "IfNotPresent"
 service:
@@ -65,6 +66,10 @@ configMap:
     TEXT_EMBEDDING_DIM: "1536"
     CLIP_MODEL: "openai/clip"
     CLIP_EMBEDDING_DIM: "768"
+    # Replicate 크레딧 문제(11-12부터 402)로 CLIP을 RunPod에 직접 띄운 서버로 바꾼다(AI 이미지 dev-1.41.0, 2026-11-22).
+    # CLIP_API_KEY는 비밀이라 Vault mulo/prod/apps/ai에 넣는다(Git에 없음). CLIP_PROVIDER를 안 넣으면 기본값 replicate라 실패한다.
+    CLIP_PROVIDER: "runpod"
+    CLIP_SERVER_URL: "https://72c1cla8is49um-8001.proxy.runpod.net/"
     LOCAL_LLM_URL: "https://72c1cla8is49um-8000.proxy.runpod.net/v1/chat/completions"
     LOCAL_LLM_MODEL: "gemma-3-12b"
     BACKEND_INTERNAL_URL: "http://backend.backend.svc.cluster.local:80/"
