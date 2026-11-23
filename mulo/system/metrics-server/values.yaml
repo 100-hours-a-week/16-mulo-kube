@@ -1,6 +1,18 @@
 # 앱 HPA가 읽는 CPU·메모리 metrics API(metrics.k8s.io)를 제공한다. 이게 멈추면 HPA도 멈춘다.
 # HPA가 쓰므로 2개로 두고 PDB를 건다.
 replicas: 2
+# 2개를 AZ마다 1개씩 둔다. 이 차트는 labelSelector를 채우지 않으므로 Pod 라벨을 직접 지정한다.
+topologySpreadConstraints:
+  -
+    maxSkew: 1
+    topologyKey: "topology.kubernetes.io/zone"
+    whenUnsatisfiable: "DoNotSchedule"
+    nodeTaintsPolicy: "Honor"
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: "metrics-server"
+    matchLabelKeys:
+      - "pod-template-hash"
 podDisruptionBudget:
   enabled: true
   minAvailable: 1
