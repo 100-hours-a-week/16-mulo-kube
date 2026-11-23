@@ -17,11 +17,8 @@ spec:
     path: mulo/general/backend/chart
     helm:
       releaseName: backend
-      # 무중단 이전(GCP에서 AWS) 카나리 기간에만 values-canary.yaml을 겹쳐 쓴다.
-      # 이전이 끝나면 이 목록에서 values-canary.yaml을 지우고 파일도 삭제한다. (런북 v2 5.3)
       valueFiles:
         - values.yaml
-        - values-canary.yaml
   syncPolicy:
     # 자식 Application끼리는 sync-wave가 생성 순서만 정하고 준비 완료를 기다리지 않는다.
     # CRD·Secret이 아직 없어 실패하면 재시도로 따라잡는다.
