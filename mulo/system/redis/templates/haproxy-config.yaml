@@ -25,6 +25,11 @@ data:
       bind :{{ .Values.service.targetPort }}
       default_backend redis_master
     backend redis_master
+      # 한 번 붙은 master에 계속 붙는다(sticky). 장애 AZ의 옛 master가 돌아와 Sentinel이 replica로 내리기 전까지
+      # 약 10초 동안 스스로를 master라고 답하는데, 그동안에도 새 master에만 보내 쓰기가 갈라지지 않게 한다.
+      balance first
+      stick-table type ip size 1
+      stick on dst
       option tcp-check
       tcp-check connect
       tcp-check send PING\r\n
