@@ -1,3 +1,6 @@
+# Redis 2개(master 1 + replica 1, system 노드 2a·2c) + Sentinel 3개(컨트롤 플레인 2a·2b·2c) + HAProxy 2개.
+# 앱은 지금처럼 Service "redis"(:6379)로 접속하고, HAProxy가 지금 master인 Redis로만 연결을 넘긴다.
+# master가 죽으면 Sentinel 3개 중 2개가 동의해 replica를 master로 올리고, HAProxy가 1~2초 안에 새 master로 바꾼다.
 # 초기 Redis는 비밀번호 없이 사용한다. 접근 제한은 별도 Calico 정책에서 관리한다.
 # 인증 분기와 Redis용 Secret은 포함하지 않는다.
 namespace: "redis"
@@ -36,3 +39,35 @@ securityContext:
 probes:
   initialDelaySeconds: 5
   periodSeconds: 10
+# Redis 개수. AZ(2a·2c)마다 1개. 첫 설치 때는 redis-0이 master가 된다.
+replicas: 2
+sentinel:
+  # 과반수(quorum) 투표에 AZ 3곳이 필요해서 AZ마다 컨트롤 플레인이 있는 곳에 둔다(system 노드는 2a·2c뿐).
+  replicas: 3
+  port: 26379
+  masterName: "mymaster"
+  # 이 수만큼 Sentinel이 "master 죽음"에 동의해야 failover한다.
+  quorum: 2
+  # master가 이 시간 동안 응답이 없으면 죽었다고 본다.
+  downAfterMilliseconds: 5000
+  failoverTimeout: 60000
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "64Mi"
+haproxy:
+  # 지금 master인 Redis에만 연결을 넘기는 TCP 프록시. 3.0 LTS.
+  image: "haproxy:3.0.11-alpine"
+  replicas: 2
+  # Pub/Sub 구독 연결은 계속 열려 있으므로 오래 유지한다. 끊겨도 앱(Lettuce)이 다시 연결·재구독한다.
+  idleTimeout: "24h"
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"

@@ -1,0 +1,101 @@
+# Sentinel 3개: Redis master가 죽었는지 투표로 판단하고 replica를 master로 올린다.
+# 과반수(2/3)가 AZ 하나를 잃어도 남도록 AZ마다 1개씩 컨트롤 플레인 노드에 둔다(system 노드는 2a·2c뿐이라서).
+{{- $n := .Values.name }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $n }}-sentinel
+  namespace: {{ .Values.namespace }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ $n }}-sentinel
+  ports:
+    - name: sentinel
+      port: {{ .Values.sentinel.port }}
+      targetPort: sentinel
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $n }}-sentinel
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceName: {{ $n }}-sentinel
+  replicas: {{ .Values.sentinel.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: {{ $n }}-sentinel
+  template:
+    metadata:
+      labels:
+        app: {{ $n }}-sentinel
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: topology.kubernetes.io/zone
+              labelSelector:
+                matchLabels:
+                  app: {{ $n }}-sentinel
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: sentinel
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [sh, /scripts/start-sentinel.sh]
+          ports:
+            - name: sentinel
+              containerPort: {{ .Values.sentinel.port }}
+          resources:
+            {{- toYaml .Values.sentinel.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            exec:
+              command: [sh, -c, "redis-cli -p {{ .Values.sentinel.port }} PING | grep -q PONG"]
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: sentinel
+            periodSeconds: 10
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            # Sentinel이 고쳐 쓰는 설정 파일. 재시작하면 다른 Sentinel·Redis에게 물어 다시 만든다.
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ $n }}-scripts
+        - name: data
+          emptyDir: {}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $n }}-sentinel
+  namespace: {{ .Values.namespace }}
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: {{ $n }}-sentinel

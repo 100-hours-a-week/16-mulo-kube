@@ -1,0 +1,48 @@
+# HAProxy 2개: 앱 연결을 지금 master인 Redis로만 넘긴다(TCP 그대로 전달, Pub/Sub 포함).
+# 1초마다 각 Redis에 "INFO replication"을 보내 role:master인 쪽만 정상으로 본다.
+# master가 바뀌면 옛 master로 가던 연결을 끊어(on-marked-down shutdown-sessions) 앱이 새 master로 다시 붙게 한다.
+{{- $n := .Values.name }}
+{{- $ns := .Values.namespace }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $n }}-haproxy
+  namespace: {{ $ns }}
+data:
+  haproxy.cfg: |
+    global
+      maxconn 4096
+    defaults
+      mode tcp
+      timeout connect 3s
+      timeout client {{ .Values.haproxy.idleTimeout }}
+      timeout server {{ .Values.haproxy.idleTimeout }}
+      timeout check 2s
+    resolvers k8s
+      parse-resolv-conf
+      hold valid 5s
+    frontend redis
+      bind :{{ .Values.service.targetPort }}
+      default_backend redis_master
+    backend redis_master
+      # 한 번 붙은 master에 계속 붙는다(sticky). 장애 AZ의 옛 master가 돌아와 Sentinel이 replica로 내리기 전까지
+      # 약 10초 동안 스스로를 master라고 답하는데, 그동안에도 새 master에만 보내 쓰기가 갈라지지 않게 한다.
+      balance first
+      stick-table type ip size 1
+      stick on dst
+      option tcp-check
+      tcp-check connect
+      tcp-check send PING\r\n
+      tcp-check expect string +PONG
+      tcp-check send info\ replication\r\n
+      tcp-check expect string role:master
+      tcp-check send QUIT\r\n
+      tcp-check expect string +OK
+      default-server check inter 1s fall 2 rise 2 resolvers k8s init-addr none on-marked-down shutdown-sessions
+    {{- range $i, $_ := until (int .Values.replicas) }}
+      server {{ $n }}-{{ $i }} {{ $n }}-{{ $i }}.{{ $n }}-headless.{{ $ns }}.svc.cluster.local:{{ $.Values.service.targetPort }}
+    {{- end }}
+    frontend health
+      mode http
+      bind :8404
+      http-request return status 200 if { path /healthz }
