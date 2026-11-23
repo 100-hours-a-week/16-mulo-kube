@@ -1,8 +1,23 @@
 # ESO controller 설치용이다. Vault 서버 설치와 TLS/Kubernetes auth 설정은 별도 작업이다.
 # 이것은 ESO operator용 값이다. Vault 연결은 store/ 로컬 차트에서 따로 관리한다.
 installCRDs: true
-replicaCount: 1
+# system 워커가 서로 다른 AZ 2곳에 1대씩 있으므로 controller·webhook·cert-controller를 AZ마다 1개씩 2개 둔다.
+# controller와 cert-controller는 2개 이상이면 리더 선출이 필요하다(이 값 하나가 둘 다 켠다).
+replicaCount: 2
+leaderElect: true
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
 global:
+  # 세 Deployment가 같이 쓰는 AZ 분산이다. labelSelector는 차트가 컴포넌트별 라벨로 채운다.
+  topologySpreadConstraints:
+    -
+      maxSkew: 1
+      topologyKey: "topology.kubernetes.io/zone"
+      whenUnsatisfiable: "DoNotSchedule"
+      nodeTaintsPolicy: "Honor"
+      matchLabelKeys:
+        - "pod-template-hash"
   nodeSelector:
     workload: "system"
   tolerations:
@@ -15,7 +30,11 @@ serviceAccount:
   create: true
   name: "external-secrets"
 webhook:
-  replicaCount: 1
+  # 웹훅이 한 AZ에만 있으면 그 AZ 장애 동안 ExternalSecret 생성·수정이 timeout난다.
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
       cpu: "10m"
@@ -24,7 +43,10 @@ webhook:
       cpu: "100m"
       memory: "128Mi"
 certController:
-  replicaCount: 1
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
       cpu: "10m"

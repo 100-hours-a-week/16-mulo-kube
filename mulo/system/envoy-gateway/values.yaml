@@ -2,9 +2,25 @@
 # Envoy Gateway controller 설치용이다. 데이터 플레인/NodePort는 system/gateway/chart에서 관리한다.
 crds:
   enabled: true
+# system 워커가 서로 다른 AZ 2곳에 1대씩 있으므로 AZ마다 1개씩 2개를 둔다. 리더 선출로 한 개만 활성이다.
+# drain·노드 축소 중에도 1개를 남긴다.
+podDisruptionBudget:
+  minAvailable: 1
 deployment:
-  replicas: 1
+  replicas: 2
   pod:
+    # 이 차트는 labelSelector를 채우지 않으므로 컨트롤러 Pod 라벨(control-plane: envoy-gateway)을 직접 지정한다.
+    topologySpreadConstraints:
+      -
+        maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: "DoNotSchedule"
+        nodeTaintsPolicy: "Honor"
+        labelSelector:
+          matchLabels:
+            control-plane: "envoy-gateway"
+        matchLabelKeys:
+          - "pod-template-hash"
     nodeSelector:
       workload: "system"
     tolerations:

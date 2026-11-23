@@ -21,7 +21,19 @@ configs:
     # 외부 HTTPS는 ALB에서 종료하고 Envoy→Argo CD는 내부 HTTP로 연결한다. 외부 HTTP 공개를 의미하지 않는다.
     server.insecure: true
 server:
-  replicas: 1
+  replicas: 2
+  # AZ마다 1개씩 둔다. labelSelector는 차트가 채운다. 장애 AZ 노드는 계산에서 뺀다.
+  topologySpreadConstraints:
+    -
+      maxSkew: 1
+      topologyKey: "topology.kubernetes.io/zone"
+      whenUnsatisfiable: "DoNotSchedule"
+      nodeTaintsPolicy: "Honor"
+      matchLabelKeys:
+        - "pod-template-hash"
+  pdb:
+    enabled: true
+    minAvailable: 1
   service:
     type: "ClusterIP"
     servicePortHttp: 80
@@ -62,7 +74,19 @@ controller:
       cpu: "500m"
       memory: "1536Mi"
 repoServer:
-  replicas: 1
+  replicas: 2
+  # AZ마다 1개씩 둔다. labelSelector는 차트가 채운다. 장애 AZ 노드는 계산에서 뺀다.
+  topologySpreadConstraints:
+    -
+      maxSkew: 1
+      topologyKey: "topology.kubernetes.io/zone"
+      whenUnsatisfiable: "DoNotSchedule"
+      nodeTaintsPolicy: "Honor"
+      matchLabelKeys:
+        - "pod-template-hash"
+  pdb:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
       cpu: "50m"

@@ -32,6 +32,19 @@ spec:
               value: general
               effect: NoSchedule
           priorityClassName: {{ .Values.envoy.priorityClassName }}
+          # general 워커가 서로 다른 AZ 2곳에 있으므로 Envoy도 AZ마다 나눠 ALB 경로가 한 AZ에 묶이지 않게 한다.
+          # 장애 AZ 노드(unreachable taint)는 계산에서 빼서 남은 AZ에 다시 뜨게 한다.
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: DoNotSchedule
+              nodeTaintsPolicy: Honor
+              labelSelector:
+                matchLabels:
+                  gateway.envoyproxy.io/owning-gateway-name: {{ .Values.gatewayName }}
+                  gateway.envoyproxy.io/owning-gateway-namespace: {{ .Values.namespace }}
+              matchLabelKeys:
+                - pod-template-hash
         container:
           resources:
             requests:

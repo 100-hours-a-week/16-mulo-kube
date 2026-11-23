@@ -5,7 +5,17 @@
 awsAccessSecret: null
 controller:
   region: "ap-northeast-2"
-  replicaCount: 1
+  # system 워커가 서로 다른 AZ 2곳에 있으므로 AZ마다 1개씩 2개다. 리더 선출로 한 개만 활성이다. PDB는 차트 기본값(maxUnavailable 1).
+  replicaCount: 2
+  # labelSelector(app=ebs-csi-controller)는 차트가 넣는다.
+  topologySpreadConstraints:
+    -
+      maxSkew: 1
+      topologyKey: "topology.kubernetes.io/zone"
+      whenUnsatisfiable: "DoNotSchedule"
+      nodeTaintsPolicy: "Honor"
+      matchLabelKeys:
+        - "pod-template-hash"
   serviceAccount:
     create: true
     name: "ebs-csi-controller-sa"

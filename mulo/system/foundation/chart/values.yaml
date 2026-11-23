@@ -38,12 +38,13 @@ resourceQuotas:
     pods: "10"
   backend:
     namespace: "backend"
+    # web 최대 4 + 롤링 surge 1 + scheduler 1 = 6개(요청 200m·640Mi, 상한 1CPU·1536Mi)가 들어가야 한다.
     requests:
       cpu: "2"
       memory: "5Gi"
     limits:
-      cpu: "6"
-      memory: "8Gi"
+      cpu: "8"
+      memory: "10Gi"
     pods: "10"
   chat:
     namespace: "chat"

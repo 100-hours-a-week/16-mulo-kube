@@ -6,11 +6,14 @@ app:
   name: "backend"
 # Pod 수는 HPA가 정한다(Cloud Wiki 3.10). 장애 대비로 최소 2개에서 시작한다.
 # maxReplicas는 부하테스트 전 초기 상한이다. 측정 결과를 보고 조정하고, foundation의 ResourceQuota도 같이 맞춘다.
+# 예약 작업(@Scheduled) 전용 Pod를 1개 따로 둔다. Backend 코드에 중복 실행 방지(ShedLock)가 없어서
+# web Pod는 예약 작업을 끄고, 이 Pod만 켠다(templates/scheduler.yaml).
+scheduler:
+  enabled: true
 autoscaling:
-  # Backend 코드에 예약 작업 중복 실행 방지(ShedLock 등)가 없어서 Pod가 2개 이상이면 같은 작업이 여러 번 돈다.
-  # 스케줄러 전용 Pod를 나누기 전까지 1개로 고정한다(#15).
-  minReplicas: 1
-  maxReplicas: 1
+  # web Pod 수다. 예약 작업은 아래 scheduler Pod 1개가 따로 돌리므로 web은 자유롭게 늘린다.
+  minReplicas: 2
+  maxReplicas: 4
   # Pod CPU 사용률(requests 대비 %)이 이 값을 넘으면 늘린다.
   targetCPUUtilization: 70
   scaleDownStabilizationSeconds: 300
@@ -76,8 +79,7 @@ configMap:
     MEMORY_SEARCH_CONVERSATION_ENVIRONMENT: "prod"
     MULO_MUSIC_SEARCH_RATE_LIMIT_NAMESPACE: "mulo:music-search-rate-limit:prod"
     MULO_RABBITMQ_ENABLED: "false"
-    # 예약 작업은 이 Backend Pod 1개에서 돈다(위 autoscaling 1개 고정과 짝).
-    MULO_SCHEDULING_ENABLED: "true"
+    # MULO_SCHEDULING_ENABLED는 Pod마다 다르므로 Deployment env로 넣는다(web false, scheduler true).
     MULO_DAILY_SONG_SCHEDULER_ENABLED: "false"
     # AI DB 읽기 전용 계정. 비밀번호는 SSM /mulo-v3-prod/db/ai/reader-password → Vault MULO_AI_DB_PASSWORD.
     MULO_AI_DB_ENABLED: "true"
