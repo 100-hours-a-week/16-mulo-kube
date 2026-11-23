@@ -66,8 +66,7 @@ configMap:
     SPRING_PROFILES_ACTIVE: "prod,popular-cache"
     SERVER_PORT: "8080"
     DB_URL: "jdbc:mysql://mulo-v3-prod-api.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Seoul&sessionVariables=time_zone='Asia/Seoul'"
-    # live가 쓰는 계정이다. 정식 계정(mulo_admin, Vault db_password)으로 바꾸는 일은 비밀번호를 확인한 뒤 따로 한다.
-    DB_USERNAME: "fullstack"
+    DB_USERNAME: "mulo_admin"
     REDIS_HOST: "redis.redis.svc.cluster.local"
     REDIS_PORT: "6379"
     MULO_REDIS_COMMANDTIMEOUT: "1s"
@@ -185,7 +184,7 @@ externalSecrets:
       secretKey: "DB_PASSWORD"
       remoteRef:
         key: "mulo/prod/apps/backend"
-        property: "db_password_gcp"  # fullstack 계정의 비밀번호 키(이름만 옛 것)
+        property: "db_password"
 # 노드의 workload 라벨과 일치시킨다.
 nodeSelector:
   workload: "general"
