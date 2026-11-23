@@ -7,8 +7,10 @@ app:
 # Pod 수는 HPA가 정한다(Cloud Wiki 3.10). 장애 대비로 최소 2개에서 시작한다.
 # maxReplicas는 부하테스트 전 초기 상한이다. 측정 결과를 보고 조정하고, foundation의 ResourceQuota도 같이 맞춘다.
 autoscaling:
-  minReplicas: 2
-  maxReplicas: 4
+  # 워커가 역할별로 AZ 2곳에 1대씩 있다. AZ마다 2개씩(노드마다 2개) 최소 4개를 두고, 부하에 따라 8개까지 늘린다.
+  # AZ 분산은 deployment의 topologySpreadConstraints(maxSkew 1)가 맞춘다.
+  minReplicas: 4
+  maxReplicas: 8
   # Pod CPU 사용률(requests 대비 %)이 이 값을 넘으면 늘린다.
   targetCPUUtilization: 70
   # 모델을 올리는 데 시간이 걸려 너무 자주 늘고 줄지 않게 한다.

@@ -12,7 +12,21 @@ autoDiscovery:
 image:
   # 클러스터 Kubernetes 마이너 버전(1.36)과 맞춘다.
   tag: "v1.36.0"
-replicaCount: 1
+# system 워커가 서로 다른 AZ 2곳에 1대씩 있으므로 AZ마다 1개씩 2개를 둔다. 리더 선출(기본 켜짐)로 한 개만 활성이다.
+# 한 AZ에만 있으면 정작 AZ 장애 때 남은 AZ 노드를 늘려야 할 CA가 같이 죽는다.
+replicaCount: 2
+podDisruptionBudget:
+  maxUnavailable: 1
+# 빈 labelSelector와 pod-template-hash를 함께 쓰면 같은 ReplicaSet의 CA Pod만 센다(차트 라벨 이름에 의존하지 않음).
+topologySpreadConstraints:
+  -
+    maxSkew: 1
+    topologyKey: "topology.kubernetes.io/zone"
+    whenUnsatisfiable: "DoNotSchedule"
+    nodeTaintsPolicy: "Honor"
+    labelSelector: {}
+    matchLabelKeys:
+      - "pod-template-hash"
 rbac:
   serviceAccount:
     create: true

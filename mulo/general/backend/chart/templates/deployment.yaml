@@ -32,52 +32,19 @@ spec:
           operator: {{ .Values.toleration.operator }}
           value: {{ .Values.toleration.value }}
           effect: {{ .Values.toleration.effect }}
+      # 같은 앱 Pod를 AZ마다 고르게 나눈다(워커는 역할별로 서로 다른 AZ 2곳에 1대씩).
+      # nodeTaintsPolicy: Honor는 장애 AZ의 노드(unreachable taint)를 계산에서 빼서, 쫓겨난 Pod가 남은 AZ에 다시 뜨게 한다.
+      # pod-template-hash로 롤링 업데이트 중에도 새 ReplicaSet의 Pod끼리 따로 분산한다.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          nodeTaintsPolicy: Honor
+          labelSelector:
+            matchLabels:
+              app: {{ .Values.app.name }}
+          matchLabelKeys:
+            - pod-template-hash
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       containers:
-        - name: {{ .Values.app.name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: {{ .Values.service.portName }}
-              containerPort: {{ .Values.service.targetPort }}
-          envFrom:
-            - configMapRef:
-                name: {{ .Values.configMap.name }}
-            - secretRef:
-                name: {{ .Values.externalSecrets.targetName }}
-          resources:
-            requests:
-              cpu: {{ .Values.resources.requests.cpu }}
-              memory: {{ .Values.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.resources.limits.cpu }}
-              memory: {{ .Values.resources.limits.memory }}
-          securityContext:
-            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
-            capabilities:
-              drop:
-                - {{ .Values.securityContext.dropCapability }}
-          startupProbe:
-            httpGet:
-              path: {{ .Values.probes.startup.path }}
-              port: {{ .Values.probes.startup.port }}
-            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
-            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
-            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
-          livenessProbe:
-            httpGet:
-              path: {{ .Values.probes.liveness.path }}
-              port: {{ .Values.probes.liveness.port }}
-            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
-            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
-            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
-          readinessProbe:
-            httpGet:
-              path: {{ .Values.probes.readiness.path }}
-              port: {{ .Values.probes.readiness.port }}
-            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
-            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
-            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+{{- include "backend.containers" (dict "root" $ "scheduling" "false") | nindent 8 }}

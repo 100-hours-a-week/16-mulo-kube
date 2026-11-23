@@ -29,37 +29,41 @@ storageClass:
 resourceQuotas:
   frontend:
     namespace: "frontend"
+    # 최대 8 + 롤링 surge 1 = 9개(요청 25m·128Mi, 상한 200m·256Mi)
     requests:
       cpu: "2"
       memory: "4Gi"
     limits:
       cpu: "4"
       memory: "8Gi"
-    pods: "10"
+    pods: "12"
   backend:
     namespace: "backend"
+    # web 최대 8 + 롤링 surge 1 + scheduler 1 = 10개(요청 200m·640Mi, 상한 1CPU·1536Mi)
     requests:
-      cpu: "2"
-      memory: "5Gi"
-    limits:
-      cpu: "6"
+      cpu: "3"
       memory: "8Gi"
-    pods: "10"
+    limits:
+      cpu: "12"
+      memory: "16Gi"
+    pods: "12"
   chat:
     namespace: "chat"
+    # 최대 8 + 롤링 surge 1 = 9개(요청 150m·512Mi, 상한 1CPU·1Gi)
     requests:
       cpu: "2"
-      memory: "4Gi"
-    limits:
-      cpu: "6"
-      memory: "8Gi"
-    pods: "10"
-  aiApi:
-    namespace: "ai-api"
-    requests:
-      cpu: "6"
-      memory: "18Gi"
+      memory: "6Gi"
     limits:
       cpu: "10"
-      memory: "30Gi"
-    pods: "10"
+      memory: "10Gi"
+    pods: "12"
+  aiApi:
+    namespace: "ai-api"
+    # 최대 8 + 롤링 surge 1 = 9개(요청 250m·2816Mi, 상한 2CPU·5Gi)
+    requests:
+      cpu: "6"
+      memory: "26Gi"
+    limits:
+      cpu: "18"
+      memory: "46Gi"
+    pods: "12"

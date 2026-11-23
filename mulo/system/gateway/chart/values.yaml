@@ -15,8 +15,9 @@ gatewayAccessLabel: "true"
 envoy:
   # 사용자 트래픽 입구라 2개 아래로 내려가지 않게 한다. CPU가 오르면 HPA가 늘린다.
   autoscaling:
-    minReplicas: 2
-    maxReplicas: 4
+    # AZ마다 2개씩(general 노드마다 2개) 최소 4개.
+    minReplicas: 4
+    maxReplicas: 8
     targetCPUUtilization: 70
   pdbMinAvailable: 1
   # Terraform의 config.envoy_node_port와 동일한 NodePort(30000~32767).
