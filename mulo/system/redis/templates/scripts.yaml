@@ -1,0 +1,61 @@
+# Redis·Sentinel 시작 스크립트. 시작할 때마다 "지금 master가 누구인지" 찾아서 그에 맞춰 설정한다.
+{{- $ns := .Values.namespace }}
+{{- $n := .Values.name }}
+{{- $port := int .Values.service.targetPort }}
+{{- $sport := int .Values.sentinel.port }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $n }}-scripts
+  namespace: {{ $ns }}
+data:
+  # 지금 master 주소를 출력한다. 1) Sentinel에게 묻고 2) 없으면 Redis들에게 role을 묻고 3) 그래도 없으면 redis-0.
+  find-master.sh: |
+    #!/bin/sh
+    NS={{ $ns }}
+    for i in $(seq 0 {{ sub (int .Values.sentinel.replicas) 1 }}); do
+      H={{ $n }}-sentinel-$i.{{ $n }}-sentinel.$NS.svc.cluster.local
+      [ "$H" = "${SELF_SENTINEL:-}" ] && continue
+      M=$(redis-cli -t 2 -h "$H" -p {{ $sport }} --raw SENTINEL get-master-addr-by-name {{ .Values.sentinel.masterName }} 2>/dev/null | head -n1)
+      if [ -n "$M" ]; then echo "$M"; exit 0; fi
+    done
+    for i in $(seq 0 {{ sub (int .Values.replicas) 1 }}); do
+      H={{ $n }}-$i.{{ $n }}-headless.$NS.svc.cluster.local
+      [ "$H" = "${SELF_REDIS:-}" ] && continue
+      if redis-cli -t 2 -h "$H" -p {{ $port }} INFO replication 2>/dev/null | grep -q "^role:master"; then echo "$H"; exit 0; fi
+    done
+    echo {{ $n }}-0.{{ $n }}-headless.$NS.svc.cluster.local
+  start-redis.sh: |
+    #!/bin/sh
+    set -eu
+    export SELF_REDIS="${HOSTNAME}.{{ $n }}-headless.{{ $ns }}.svc.cluster.local"
+    MASTER=$(sh /scripts/find-master.sh)
+    cp /etc/redis/redis.conf /tmp/conf/redis.conf
+    # Sentinel·다른 Redis가 이 Pod를 IP가 아니라 고정 DNS 이름으로 알게 한다(Pod IP는 재시작 때 바뀐다).
+    echo "replica-announce-ip ${SELF_REDIS}" >> /tmp/conf/redis.conf
+    if [ "$MASTER" != "$SELF_REDIS" ]; then
+      echo "replicaof ${MASTER} {{ $port }}" >> /tmp/conf/redis.conf
+      echo "start as replica of ${MASTER}"
+    else
+      echo "start as master"
+    fi
+    exec redis-server /tmp/conf/redis.conf
+  start-sentinel.sh: |
+    #!/bin/sh
+    set -eu
+    export SELF_SENTINEL="${HOSTNAME}.{{ $n }}-sentinel.{{ $ns }}.svc.cluster.local"
+    MASTER=$(sh /scripts/find-master.sh)
+    echo "monitor master ${MASTER}"
+    # Sentinel은 실행 중에 이 파일을 고쳐 쓴다(새 master 등). 그래서 쓰기 가능한 emptyDir에 매번 새로 만든다.
+    cat > /data/sentinel.conf <<CONF
+    port {{ $sport }}
+    dir /data
+    sentinel resolve-hostnames yes
+    sentinel announce-hostnames yes
+    sentinel announce-ip ${SELF_SENTINEL}
+    sentinel monitor {{ .Values.sentinel.masterName }} ${MASTER} {{ $port }} {{ .Values.sentinel.quorum }}
+    sentinel down-after-milliseconds {{ .Values.sentinel.masterName }} {{ .Values.sentinel.downAfterMilliseconds }}
+    sentinel failover-timeout {{ .Values.sentinel.masterName }} {{ .Values.sentinel.failoverTimeout }}
+    sentinel parallel-syncs {{ .Values.sentinel.masterName }} 1
+    CONF
+    exec redis-sentinel /data/sentinel.conf

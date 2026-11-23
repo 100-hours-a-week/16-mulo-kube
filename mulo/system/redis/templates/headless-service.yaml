@@ -6,6 +6,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   clusterIP: None
+  # 준비되기 전에도 Pod DNS 이름이 풀려야 Sentinel·replica가 서로를 찾을 수 있다.
+  publishNotReadyAddresses: true
   selector:
     app: {{ .Values.name }}
   ports:
