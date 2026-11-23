@@ -7,8 +7,10 @@ app:
 # Pod 수는 HPA가 정한다(Cloud Wiki 3.10). 장애 대비로 최소 2개에서 시작한다.
 # maxReplicas는 부하테스트 전 초기 상한이다. 측정 결과를 보고 조정하고, foundation의 ResourceQuota도 같이 맞춘다.
 autoscaling:
-  minReplicas: 2
-  maxReplicas: 4
+  # Backend 코드에 예약 작업 중복 실행 방지(ShedLock 등)가 없어서 Pod가 2개 이상이면 같은 작업이 여러 번 돈다.
+  # 스케줄러 전용 Pod를 나누기 전까지 1개로 고정한다(#15).
+  minReplicas: 1
+  maxReplicas: 1
   # Pod CPU 사용률(requests 대비 %)이 이 값을 넘으면 늘린다.
   targetCPUUtilization: 70
   scaleDownStabilizationSeconds: 300
@@ -74,6 +76,9 @@ configMap:
     MEMORY_SEARCH_CONVERSATION_ENVIRONMENT: "prod"
     MULO_MUSIC_SEARCH_RATE_LIMIT_NAMESPACE: "mulo:music-search-rate-limit:prod"
     MULO_RABBITMQ_ENABLED: "false"
+    # 예약 작업은 이 Backend Pod 1개에서 돈다(위 autoscaling 1개 고정과 짝).
+    MULO_SCHEDULING_ENABLED: "true"
+    MULO_DAILY_SONG_SCHEDULER_ENABLED: "false"
     # AI DB 읽기 전용 계정. 비밀번호는 SSM /mulo-v3-prod/db/ai/reader-password → Vault MULO_AI_DB_PASSWORD.
     MULO_AI_DB_ENABLED: "true"
     MULO_AI_DB_URL: "jdbc:postgresql://mulo-v3-prod-ai.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:5432/muro_ai?sslmode=require"
@@ -124,27 +129,6 @@ probes:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
-# Backend DB 승격 때 쓰기를 붙잡아 두는 ProxySQL. 무중단 이전 기간에만 values-canary.yaml에서 켠다.
-dbProxy:
-  enabled: false
-  image: "proxysql/proxysql:2.7.3"
-  replicas: 2
-  threads: 4
-  # 프록시가 클라이언트에 알리는 서버 버전. Connector/J가 이 값을 보고 동작을 정한다.
-  serverVersion: "8.4.0"
-  # 쓰기 보류 상한(ms). 서버가 없을 때 쿼리가 대기하는 최대 시간이다.
-  holdMaxMs: 60000
-  server:
-    host: "10.91.0.6"
-    port: 3306
-    useSsl: 1
-    maxConnections: 300
-  resources:
-    cpu: "100m"
-    memory: "128Mi"
-    # 네임스페이스 ResourceQuota가 limits.cpu를 요구한다. 없으면 파드 생성이 거부된다.
-    cpuLimit: "500m"
-    memoryLimit: "512Mi"
 serviceAccount:
   name: "backend"
   # Kubernetes API 토큰이 필요한 앱만 true. 일반 앱은 false.
@@ -155,7 +139,7 @@ securityContext:
   allowPrivilegeEscalation: false
   # Pod에서 제거할 리눅스 권한. ALL이면 전부 제거한다.
   dropCapability: "ALL"
-# 기존 GCP URL map의 /api·/image 경로를 보존한다. 실제 앱 URI와 대조한다.
+# Backend가 받는 /api·/image 경로다.
 httpRoute:
   # 연결할 Gateway의 이름, namespace, listener 이름.
   parentRef:
@@ -225,8 +209,3 @@ vpa:
   maxAllowed:
     cpu: "2"
     memory: "3Gi"
-
-# GCP 자원(GCS)에 키 없이 접근할 때 쓰는 Workload Identity Federation 자격 증명 설정이다.
-# 기본은 꺼짐이다. 복제·카나리 기간에만 values-canary.yaml에서 켠다.
-gcpWif:
-  enabled: false
