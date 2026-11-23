@@ -38,7 +38,7 @@ image:
   repository: "840255883218.dkr.ecr.ap-northeast-2.amazonaws.com/mulo-v3-prod/ai"
   # ECR에 존재하는 배포 이미지 태그다.
   # dev-1.41.0은 main(1.12.0)에 CLIP RunPod 클라이언트 2커밋만 더한 develop 빌드다(2026-11-22). main에 릴리스되면 정식 태그로 바꾼다.
-  tag: "dev-1.41.0"
+  tag: "1.13.0"
   # Always / IfNotPresent / Never 중 선택.
   pullPolicy: "IfNotPresent"
 service:
