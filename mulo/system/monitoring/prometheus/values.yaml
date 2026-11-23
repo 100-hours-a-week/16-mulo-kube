@@ -25,6 +25,17 @@ prometheusOperator:
       operator: "Equal"
       value: "system"
       effect: "NoSchedule"
+    # 노드가 죽으면(NotReady·Unreachable) 기본 300초가 아니라 30초 뒤 다른 노드(다른 AZ)로 옮긴다.
+    -
+      key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 30
+    -
+      key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 30
   resources:
     requests:
       cpu: "50m"
@@ -46,7 +57,11 @@ prometheus:
   networkPolicy:
     enabled: false
   prometheusSpec:
-    replicas: 1
+    # system 노드가 있는 AZ(2a·2c)마다 1개씩 둔다. 각자 따로 같은 대상을 수집하고, EBS도 각자 자기 AZ에 만든다
+    # (StorageClass가 WaitForFirstConsumer라 Pod가 뜬 AZ에 볼륨이 생긴다). AZ 하나가 죽어도 남은 쪽이 계속 수집한다.
+    replicas: 2
+    podAntiAffinity: "hard"
+    podAntiAffinityTopologyKey: "topology.kubernetes.io/zone"
     # 초기 system 노드 용량을 고려해 3일/8GB로 제한했다. 수집량을 측정한 뒤 조정한다.
     retention: "3d"
     nodeSelector:
@@ -135,6 +150,17 @@ kube-state-metrics:
       operator: "Equal"
       value: "system"
       effect: "NoSchedule"
+    # 노드가 죽으면(NotReady·Unreachable) 기본 300초가 아니라 30초 뒤 다른 노드(다른 AZ)로 옮긴다.
+    -
+      key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 30
+    -
+      key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 30
   resources:
     requests:
       cpu: "25m"

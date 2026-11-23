@@ -1,6 +1,19 @@
 # release 이름 prometheus/loki, namespace monitoring을 기준으로 데이터소스를 연결했다.
 # 관리자 비밀번호는 기존 Secret 또는 Vault/ESO로 준비한다.
-replicas: 1
+# system 노드가 있는 AZ(2a·2c)마다 1개씩. 대시보드는 Git에서 받아 오므로 두 Pod가 같은 대시보드를 보여 준다.
+# 로그인 정보는 Pod마다 따로 저장되므로 아래 BackendTrafficPolicy로 같은 사용자를 같은 Pod에 고정한다.
+replicas: 2
+topologySpreadConstraints:
+  -
+    maxSkew: 1
+    topologyKey: "topology.kubernetes.io/zone"
+    whenUnsatisfiable: "DoNotSchedule"
+    nodeTaintsPolicy: "Honor"
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: "grafana"
+podDisruptionBudget:
+  minAvailable: 1
 # Vault mulo/prod/platform/grafana의 admin_user/admin_password를 Store 차트가 이 Secret으로 동기화한다.
 admin:
   existingSecret: "grafana-admin"
@@ -54,6 +67,17 @@ tolerations:
     operator: "Equal"
     value: "system"
     effect: "NoSchedule"
+  # 노드가 죽으면(NotReady·Unreachable) 기본 300초가 아니라 30초 뒤 다른 노드(다른 AZ)로 옮긴다.
+  -
+    key: "node.kubernetes.io/not-ready"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 30
+  -
+    key: "node.kubernetes.io/unreachable"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 30
 # CPU/메모리 requests·limits를 실제 노드 용량에 맞춘다.
 resources:
   requests:
@@ -115,3 +139,24 @@ dashboards:
   mulo:
     mulo-backend:
       url: "https://raw.githubusercontent.com/100-hours-a-week/16-mulo-kube/main/mulo/system/monitoring/grafana/dashboards/mulo-backend.json"
+# 같은 사용자를 같은 Grafana Pod로 보낸다(Envoy가 쿠키를 만들어 고정). Pod가 죽으면 다른 Pod로 가고 로그인만 다시 하면 된다.
+extraObjects:
+  -
+    apiVersion: "gateway.envoyproxy.io/v1alpha1"
+    kind: "BackendTrafficPolicy"
+    metadata:
+      name: "grafana-session-affinity"
+      namespace: "monitoring"
+    spec:
+      targetRefs:
+        -
+          group: "gateway.networking.k8s.io"
+          kind: "HTTPRoute"
+          name: "grafana"
+      loadBalancer:
+        type: "ConsistentHash"
+        consistentHash:
+          type: "Cookie"
+          cookie:
+            name: "mulo-grafana-affinity"
+            ttl: "24h"
