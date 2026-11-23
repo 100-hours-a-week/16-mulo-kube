@@ -11,9 +11,10 @@ app:
 scheduler:
   enabled: true
 autoscaling:
-  # web Pod 수다. 예약 작업은 아래 scheduler Pod 1개가 따로 돌리므로 web은 자유롭게 늘린다.
-  minReplicas: 2
-  maxReplicas: 4
+  # 워커가 역할별로 AZ 2곳에 1대씩 있다. AZ마다 2개씩(노드마다 2개) 최소 4개를 두고, 부하에 따라 8개까지 늘린다.
+  # AZ 분산은 deployment의 topologySpreadConstraints(maxSkew 1)가 맞춘다.
+  minReplicas: 4
+  maxReplicas: 8
   # Pod CPU 사용률(requests 대비 %)이 이 값을 넘으면 늘린다.
   targetCPUUtilization: 70
   scaleDownStabilizationSeconds: 300
