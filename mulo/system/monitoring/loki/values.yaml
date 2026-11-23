@@ -1,4 +1,4 @@
-# system 워커 1대의 초기 Loki 구성이다. WAL은 EBS, 장기 로그 데이터는 실제 S3 버킷에 저장한다.
+# system 워커(2a·2c)마다 1개씩 둔 Loki 구성이다. WAL은 각자 자기 AZ의 EBS, 장기 로그 데이터는 S3 버킷에 저장한다.
 # S3 인증은 EBS CSI와 같은 방식으로 system EC2 역할(IMDSv2, hop limit 2)을 사용한다.
 # kubeadm에는 IRSA webhook이 없으므로 ServiceAccount의 role-arn 주석은 효과가 없어 넣지 않는다.
 # mulo-v3-prod-system 역할에 아래 버킷의 s3:ListBucket·GetObject·PutObject·DeleteObject 권한을 Terraform으로 추가해야 한다.
@@ -11,7 +11,8 @@ loki:
   # 단일 tenant 내부 구성에서 false를 선택할 수 있다. 외부 공개 접근은 별도 인증이 필요하다.
   auth_enabled: false
   commonConfig:
-    # SingleBinary replica 1로 검증하면 1. HA 복제 수는 실제 인스턴스 수와 맞춘다.
+    # 복제 1: 로그 한 줄은 Loki 한 곳에만 쓴다. 2개에 복제 2로 두면 쓰기 정족수(floor(2/2)+1=2) 때문에
+    # 하나만 죽어도 모든 쓰기가 실패한다. 대신 아래 autoforget_unhealthy로 죽은 쪽을 링에서 빼서 남은 쪽이 다 받게 한다.
     replication_factor: 1
   storage:
     type: "s3"
@@ -35,6 +36,9 @@ loki:
   ingester:
     wal:
       enabled: true
+    # heartbeat가 1분(기본 heartbeat_timeout) 넘게 끊긴 Loki를 링에서 자동으로 뺀다.
+    # AZ 장애 약 1분 뒤부터 남은 Loki가 모든 로그를 받는다. 죽은 쪽 WAL은 그 AZ가 돌아오면 다시 올라간다.
+    autoforget_unhealthy: true
   # 보존 기간이 없으면 S3의 로그가 무기한 쌓인다. compactor가 기간이 지난 로그를 삭제한다.
   limits_config:
     retention_period: "168h"
@@ -42,7 +46,16 @@ loki:
     retention_enabled: true
     delete_request_store: "s3"
 singleBinary:
-  replicas: 1
+  # system 노드가 있는 AZ(2a·2c)마다 1개씩. EBS(WAL)도 각자 자기 AZ에 만든다.
+  replicas: 2
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        -
+          topologyKey: "topology.kubernetes.io/zone"
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: "single-binary"
   nodeSelector:
     workload: "system"
   tolerations:
