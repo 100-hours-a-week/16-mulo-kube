@@ -1,22 +1,24 @@
-# GatewayClass·EnvoyProxy·Gateway·health route. Envoy Gateway CRD 이후에 동기화한다.
+# 앱 차트. 이미지 태그 변경은 values.yaml을 커밋해 반영한다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: mulo-gateway
+  name: backend
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: edge
+    namespace: backend
   source:
     repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
     targetRevision: main
-    path: mulo/system/gateway/chart
+    path: general/backend/chart
     helm:
-      releaseName: mulo-gateway
+      releaseName: backend
+      valueFiles:
+        - values.yaml
   syncPolicy:
     # 자식 Application끼리는 sync-wave가 생성 순서만 정하고 준비 완료를 기다리지 않는다.
     # CRD·Secret이 아직 없어 실패하면 재시도로 따라잡는다.

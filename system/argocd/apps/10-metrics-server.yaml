@@ -1,24 +1,24 @@
-# 각 노드의 Pod 로그를 Loki로 보낸다.
+# kubectl top과 향후 HPA가 사용하는 metrics.k8s.io API.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: alloy
+  name: metrics-server
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring
+    namespace: kube-system
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: alloy
-      targetRevision: 1.15.0
+    - repoURL: https://kubernetes-sigs.github.io/metrics-server/
+      chart: metrics-server
+      targetRevision: 3.14.0
       helm:
-        releaseName: alloy
+        releaseName: metrics-server
         valueFiles:
-        - $values/mulo/system/monitoring/alloy/values.yaml
+        - $values/system/metrics-server/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main

@@ -141,7 +141,7 @@ dashboardProviders:
 dashboards:
   mulo:
     mulo-backend:
-      url: "https://raw.githubusercontent.com/100-hours-a-week/16-mulo-kube/main/mulo/system/monitoring/grafana/dashboards/mulo-backend.json"
+      url: "https://raw.githubusercontent.com/100-hours-a-week/16-mulo-kube/main/system/monitoring/grafana/dashboards/mulo-backend.json"
 # 같은 사용자를 같은 Grafana Pod로 보낸다(Envoy가 쿠키를 만들어 고정). Pod가 죽으면 다른 Pod로 가고 로그인만 다시 하면 된다.
 extraObjects:
   -

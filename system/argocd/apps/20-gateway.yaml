@@ -1,8 +1,8 @@
-# Argo CD 자체. 초기 설치 후에는 bootstrap-values 없이 기본 values로 HTTPRoute까지 관리한다.
+# GatewayClass·EnvoyProxy·Gateway·health route. Envoy Gateway CRD 이후에 동기화한다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd
+  name: mulo-gateway
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
@@ -10,19 +10,13 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
-  sources:
-    - repoURL: https://argoproj.github.io/argo-helm
-      chart: argo-cd
-      targetRevision: 10.17.2
-      helm:
-        releaseName: argocd
-        valueFiles:
-        - $values/mulo/system/argocd/values.yaml
-    # values 파일만 이 Git 저장소에서 읽는다.
-    - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
-      targetRevision: main
-      ref: values
+    namespace: edge
+  source:
+    repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
+    targetRevision: main
+    path: system/gateway/chart
+    helm:
+      releaseName: mulo-gateway
   syncPolicy:
     # 자식 Application끼리는 sync-wave가 생성 순서만 정하고 준비 완료를 기다리지 않는다.
     # CRD·Secret이 아직 없어 실패하면 재시도로 따라잡는다.
@@ -37,4 +31,3 @@ spec:
       selfHeal: true
     syncOptions:
       - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true

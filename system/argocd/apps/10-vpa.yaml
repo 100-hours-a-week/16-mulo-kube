@@ -1,8 +1,8 @@
-# KEDA. Prometheus 지표 기반 앱 오토스케일링(ScaledObject).
+# VPA recommender(추천 전용). 앱 request/limit 산정에 쓴다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: keda
+  name: vpa
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
@@ -10,15 +10,15 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: keda
+    namespace: kube-system
   sources:
-    - repoURL: https://kedacore.github.io/charts
-      chart: keda
-      targetRevision: 2.21.1
+    - repoURL: https://kubernetes.github.io/autoscaler
+      chart: vertical-pod-autoscaler
+      targetRevision: 0.17.0
       helm:
-        releaseName: keda
+        releaseName: vpa
         valueFiles:
-        - $values/mulo/system/keda/values.yaml
+        - $values/system/vpa/values.yaml
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
       ref: values

@@ -1,0 +1,38 @@
+# KEDA. Prometheus 지표 기반 앱 오토스케일링(ScaledObject).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keda
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keda
+  sources:
+    - repoURL: https://kedacore.github.io/charts
+      chart: keda
+      targetRevision: 2.21.1
+      helm:
+        releaseName: keda
+        valueFiles:
+        - $values/system/keda/values.yaml
+    - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true

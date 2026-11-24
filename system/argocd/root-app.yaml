@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
     targetRevision: main
-    path: mulo/system/argocd/apps
+    path: system/argocd/apps
   syncPolicy:
     automated:
       prune: true

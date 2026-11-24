@@ -1,22 +1,28 @@
-# 앱 차트. 이미지 태그 변경은 values.yaml을 커밋해 반영한다.
+# vault-store가 만든 grafana-admin Secret을 사용한다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: chat
+  name: grafana
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: chat
-  source:
-    repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
-    targetRevision: main
-    path: mulo/chat/chart
-    helm:
-      releaseName: chat
+    namespace: monitoring
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: grafana
+      targetRevision: 10.7.0
+      helm:
+        releaseName: grafana
+        valueFiles:
+        - $values/system/monitoring/grafana/values.yaml
+    # values 파일만 이 Git 저장소에서 읽는다.
+    - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
+      targetRevision: main
+      ref: values
   syncPolicy:
     # 자식 Application끼리는 sync-wave가 생성 순서만 정하고 준비 완료를 기다리지 않는다.
     # CRD·Secret이 아직 없어 실패하면 재시도로 따라잡는다.
