@@ -6,11 +6,11 @@
 
 _Git이 설정의 원본이고, Argo CD가 배포합니다._
 
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![Argo CD](https://img.shields.io/badge/Argo%20CD-app--of--apps-EF7B4D?logo=argo&logoColor=white)](https://argo-cd.readthedocs.io)
-[![Helm](https://img.shields.io/badge/Helm-charts-0F1689?logo=helm&logoColor=white)](https://helm.sh)
-[![Envoy Gateway](https://img.shields.io/badge/Envoy%20Gateway-v1.10.0-AC6199?logo=envoyproxy&logoColor=white)](https://gateway.envoyproxy.io)
-[![AWS](https://img.shields.io/badge/AWS-ap--northeast--2-FF9900?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com)
+[![Kubernetes 1.36](docs/badges/kubernetes.svg)](https://kubernetes.io)
+[![Argo CD](docs/badges/argocd.svg)](https://argo-cd.readthedocs.io)
+[![Helm](docs/badges/helm.svg)](https://helm.sh)
+[![Envoy Gateway v1.10.0](docs/badges/envoy-gateway.svg)](https://gateway.envoyproxy.io)
+[![AWS ap-northeast-2](docs/badges/aws.svg)](https://aws.amazon.com)
 
 </div>
 
@@ -29,7 +29,6 @@ _Git이 설정의 원본이고, Argo CD가 배포합니다._
 - [운영](#운영)
 - [AZ 장애 대응](#az-장애-대응)
 - [차트 작성 규칙](#차트-작성-규칙)
-- [알려진 제약](#알려진-제약)
 
 ## 개요
 
@@ -329,12 +328,3 @@ AWS FIS로 AZ 하나를 10분 동안 끊는 훈련을 하며 아래 설정을 �
 helm lint --strict general/backend/chart
 helm template backend general/backend/chart | kubectl apply --dry-run=server -f -
 ```
-
-## 알려진 제약
-
-- **Pod별 IAM 역할(IRSA)이 없습니다.** EBS CSI, Loki, Cluster Autoscaler 등은 노드의 EC2 역할을 씁니다. 같은 노드의 다른 Pod도 그 권한을 볼 수 있습니다.
-- **Vault는 1개 Pod입니다.** KMS로 자동 unseal하지만, 뜨는 동안에는 시크릿 갱신이 잠깐 멈춥니다(이미 만들어진 Secret은 그대로). TLS 인증서는 self-signed입니다.
-- **CoreDNS는 kubeadm이 관리합니다.** `kubeadm upgrade` 때 Deployment가 다시 써질 수 있습니다.
-- **metrics-server는 kubelet 인증서를 검증하지 않습니다**(`--kubelet-insecure-tls`). 노드가 자동으로 늘 때마다 CSR을 승인할 수 없기 때문입니다.
-- kube-prometheus-stack에서 controller-manager, scheduler, etcd, kube-proxy 수집은 꺼 뒀습니다. kubeadm 기본값이 127.0.0.1에만 메트릭을 열기 때문입니다.
-- gp3 StorageClass는 `Retain`입니다. PVC를 지워도 EBS 볼륨이 남으니 직접 정리합니다.
