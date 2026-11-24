@@ -31,6 +31,12 @@ scheduling: 이 Pod에서 @Scheduled 예약 작업을 돌릴지("true"/"false").
     capabilities:
       drop:
         - {{ $r.Values.securityContext.dropCapability }}
+  # 종료 신호(SIGTERM) 전에 잠시 기다린다. 그동안 Envoy·kube-proxy가 이 Pod를 대상에서 뺀다.
+  # 바로 종료하면 대상에서 빠지기 전 몇 초 동안 들어온 요청이 끊긴다(Pod 축출·재배치·배포 때).
+  lifecycle:
+    preStop:
+      sleep:
+        seconds: {{ $r.Values.lifecycle.preStop.sleepSeconds }}
   startupProbe:
     httpGet:
       path: {{ $r.Values.probes.startup.path }}

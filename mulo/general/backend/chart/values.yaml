@@ -137,7 +137,13 @@ serviceAccount:
   # Kubernetes API 토큰이 필요한 앱만 true. 일반 앱은 false.
   automountServiceAccountToken: false
 # Pod 종료 전 유예 시간(초).
-terminationGracePeriodSeconds: 30
+# preStop 10초 + Spring graceful shutdown(진행 중 요청 마무리, 기본 최대 30초)이 들어가도록 45초.
+terminationGracePeriodSeconds: 45
+# kubelet의 sleep preStop을 사용하므로 이미지에 셸이 필요 없다(chat과 같은 방식).
+lifecycle:
+  preStop:
+    # 종료 신호 전에 기다리는 시간(초). terminationGracePeriodSeconds보다 충분히 짧아야 한다.
+    sleepSeconds: 10
 securityContext:
   allowPrivilegeEscalation: false
   # Pod에서 제거할 리눅스 권한. ALL이면 전부 제거한다.
