@@ -45,3 +45,35 @@ deschedulerPolicy:
         balance:
           enabled:
             - RemovePodsViolatingTopologySpreadConstraint
+    # CoreDNS(kubeadm 관리). AZ 장애로 축출되면 남은 AZ CP로 몰리고, 복구 뒤에도 그대로 남는다.
+    # 2026-11-24 2b 훈련 뒤 2a 1개·2c 2개·2b 0개였다. 다음 장애 때 한 AZ에 2개가 있으면 DNS 질의가 더 많이 실패한다.
+    # CoreDNS의 분산 규칙은 ScheduleAnyway이고 system-cluster-critical이라 이 profile에서만 따로 허용한다.
+    - name: rebalance-coredns
+      pluginConfig:
+        - name: DefaultEvictor
+          args:
+            nodeFit: true
+            # system-cluster-critical 보호만 푼다(evictSystemCriticalPods는 0.36에서 deprecated).
+            podProtections:
+              defaultDisabled:
+                - "SystemCriticalPods"
+            # 복제 수가 3보다 적으면(일부가 이미 내려가 있으면) 옮기지 않는다. 한 번에 규칙을 맞출 만큼만(보통 1개) 내보낸다.
+            minReplicas: 3
+            labelSelector:
+              matchLabels:
+                k8s-app: "kube-dns"
+        - name: RemovePodsViolatingTopologySpreadConstraint
+          args:
+            constraints:
+              - DoNotSchedule
+              - ScheduleAnyway
+            namespaces:
+              include:
+                - "kube-system"
+            labelSelector:
+              matchLabels:
+                k8s-app: "kube-dns"
+      plugins:
+        balance:
+          enabled:
+            - RemovePodsViolatingTopologySpreadConstraint
