@@ -35,3 +35,22 @@ envoy:
 health:
   # Terraform의 envoy_health_path와 같은 경로. ALB 헬스체크는 도메인 Host를 보내지 않는다.
   path: "/healthz"
+
+# Gateway 전체에 거는 장애 대응(BackendTrafficPolicy). 2026-11-24 2c 장애 훈련에서 죽은 Pod로 가는 요청이 멈춘 문제 대응.
+resilience:
+  # 백엔드 Pod TCP 연결 대기. 기본은 10초다.
+  connectTimeout: "1s"
+  retry:
+    # 요청이 전달되기 전 실패(연결 실패 등)만 다른 Pod로 다시 보낸다.
+    numRetries: 2
+    baseInterval: "50ms"
+    maxInterval: "500ms"
+  passive:
+    # 연속 연결 실패 2번이면 그 Pod를 뺀다.
+    consecutiveLocalOriginFailures: 2
+    # 502·503·504가 연속 5번이면 뺀다.
+    consecutiveGatewayErrors: 5
+    interval: "2s"
+    # 처음 30초 빼고, 다시 실패하면 점점 길게 뺀다.
+    baseEjectionTime: "30s"
+    maxEjectionPercent: 50
