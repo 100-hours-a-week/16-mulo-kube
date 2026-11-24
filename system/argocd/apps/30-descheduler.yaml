@@ -1,24 +1,24 @@
-# kubectl top과 향후 HPA가 사용하는 metrics.k8s.io API.
+# AZ 장애 뒤 한쪽 AZ로 몰린 Pod를 다시 나눈다(topologySpreadConstraints 위반 Pod 재배치).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: metrics-server
+  name: descheduler
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
   sources:
-    - repoURL: https://kubernetes-sigs.github.io/metrics-server/
-      chart: metrics-server
-      targetRevision: 3.14.0
+    - repoURL: https://kubernetes-sigs.github.io/descheduler/
+      chart: descheduler
+      targetRevision: 0.36.0
       helm:
-        releaseName: metrics-server
+        releaseName: descheduler
         valueFiles:
-        - $values/mulo/system/metrics-server/values.yaml
+        - $values/system/descheduler/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main

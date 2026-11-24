@@ -1,24 +1,24 @@
-# Prometheus operator와 CRD. CRD annotation 크기 제한 때문에 ServerSideApply가 필요하다.
+# 노드 자동 증설. Pending Pod를 보고 역할별 ASG desired를 늘리고, 남는 노드는 줄인다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: prometheus
+  name: cluster-autoscaler
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring
+    namespace: kube-system
   sources:
-    - repoURL: https://prometheus-community.github.io/helm-charts
-      chart: kube-prometheus-stack
-      targetRevision: 93.2.0
+    - repoURL: https://kubernetes.github.io/autoscaler
+      chart: cluster-autoscaler
+      targetRevision: 9.60.0
       helm:
-        releaseName: prometheus
+        releaseName: cluster-autoscaler
         valueFiles:
-        - $values/mulo/system/monitoring/prometheus/values.yaml
+        - $values/system/cluster-autoscaler/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
@@ -37,4 +37,3 @@ spec:
       selfHeal: true
     syncOptions:
       - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true

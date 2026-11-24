@@ -1,9 +1,8 @@
-# Vault는 KMS auto-unseal이지만 설정 변경이 seal·저장소에 직접 닿으므로 자동 동기화하지 않는다. 변경 시 UI에서 직접 Sync한다.
-# StatefulSet은 OnDelete라 Sync 뒤 vault-0 Pod를 지워야 새 설정으로 뜬다.
+# Argo CD 자체. 초기 설치 후에는 bootstrap-values 없이 기본 values로 HTTPRoute까지 관리한다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: vault
+  name: argocd
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
@@ -11,15 +10,15 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: vault
+    namespace: argocd
   sources:
-    - repoURL: https://helm.releases.hashicorp.com
-      chart: vault
-      targetRevision: 0.34.1
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 10.17.2
       helm:
-        releaseName: vault
+        releaseName: argocd
         valueFiles:
-        - $values/mulo/system/vault/values.yaml
+        - $values/system/argocd/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
@@ -33,5 +32,9 @@ spec:
         duration: 30s
         factor: 2
         maxDuration: 10m
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - SkipDryRunOnMissingResource=true
+      - ServerSideApply=true

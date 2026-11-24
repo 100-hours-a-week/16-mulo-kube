@@ -1,8 +1,8 @@
-# 로그 저장소. S3 권한은 system EC2 역할에 있어야 한다.
+# Prometheus operator와 CRD. CRD annotation 크기 제한 때문에 ServerSideApply가 필요하다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: loki
+  name: prometheus
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "0"
@@ -12,13 +12,13 @@ spec:
     server: https://kubernetes.default.svc
     namespace: monitoring
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: loki
-      targetRevision: 7.6.0
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 93.2.0
       helm:
-        releaseName: loki
+        releaseName: prometheus
         valueFiles:
-        - $values/mulo/system/monitoring/loki/values.yaml
+        - $values/system/monitoring/prometheus/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
@@ -37,3 +37,4 @@ spec:
       selfHeal: true
     syncOptions:
       - SkipDryRunOnMissingResource=true
+      - ServerSideApply=true

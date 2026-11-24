@@ -1,8 +1,8 @@
-# 노드 자동 증설. Pending Pod를 보고 역할별 ASG desired를 늘리고, 남는 노드는 줄인다.
+# Envoy Gateway controller와 Gateway API CRD. OCI 차트는 envoyproxy-oci-repo.yaml의 저장소 등록이 필요하다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cluster-autoscaler
+  name: envoy-gateway
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
@@ -10,15 +10,15 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: kube-system
+    namespace: envoy-gateway-system
   sources:
-    - repoURL: https://kubernetes.github.io/autoscaler
-      chart: cluster-autoscaler
-      targetRevision: 9.60.0
+    - repoURL: docker.io/envoyproxy
+      chart: gateway-helm
+      targetRevision: v1.10.0
       helm:
-        releaseName: cluster-autoscaler
+        releaseName: envoy-gateway
         valueFiles:
-        - $values/mulo/system/cluster-autoscaler/values.yaml
+        - $values/system/envoy-gateway/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
@@ -37,3 +37,4 @@ spec:
       selfHeal: true
     syncOptions:
       - SkipDryRunOnMissingResource=true
+      - ServerSideApply=true

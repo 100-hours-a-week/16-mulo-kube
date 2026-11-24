@@ -1,24 +1,25 @@
-# Envoy Gateway controller와 Gateway API CRD. OCI 차트는 envoyproxy-oci-repo.yaml의 저장소 등록이 필요하다.
+# Vault는 KMS auto-unseal이지만 설정 변경이 seal·저장소에 직접 닿으므로 자동 동기화하지 않는다. 변경 시 UI에서 직접 Sync한다.
+# StatefulSet은 OnDelete라 Sync 뒤 vault-0 Pod를 지워야 새 설정으로 뜬다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: envoy-gateway
+  name: vault
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: envoy-gateway-system
+    namespace: vault
   sources:
-    - repoURL: docker.io/envoyproxy
-      chart: gateway-helm
-      targetRevision: v1.10.0
+    - repoURL: https://helm.releases.hashicorp.com
+      chart: vault
+      targetRevision: 0.34.1
       helm:
-        releaseName: envoy-gateway
+        releaseName: vault
         valueFiles:
-        - $values/mulo/system/envoy-gateway/values.yaml
+        - $values/system/vault/values.yaml
     # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
@@ -32,9 +33,5 @@ spec:
         duration: 30s
         factor: 2
         maxDuration: 10m
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true

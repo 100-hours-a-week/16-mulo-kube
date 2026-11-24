@@ -1,28 +1,31 @@
-# VPA recommender(추천 전용). 앱 request/limit 산정에 쓴다.
+# 각 노드의 Pod 로그를 Loki로 보낸다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: vpa
+  name: alloy
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: kube-system
+    namespace: monitoring
   sources:
-    - repoURL: https://kubernetes.github.io/autoscaler
-      chart: vertical-pod-autoscaler
-      targetRevision: 0.17.0
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.15.0
       helm:
-        releaseName: vpa
+        releaseName: alloy
         valueFiles:
-        - $values/mulo/system/vpa/values.yaml
+        - $values/system/monitoring/alloy/values.yaml
+    # values 파일만 이 Git 저장소에서 읽는다.
     - repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
       targetRevision: main
       ref: values
   syncPolicy:
+    # 자식 Application끼리는 sync-wave가 생성 순서만 정하고 준비 완료를 기다리지 않는다.
+    # CRD·Secret이 아직 없어 실패하면 재시도로 따라잡는다.
     retry:
       limit: 10
       backoff:
@@ -33,6 +36,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
       - SkipDryRunOnMissingResource=true

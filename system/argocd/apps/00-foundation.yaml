@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/100-hours-a-week/16-mulo-kube.git
     targetRevision: main
-    path: mulo/system/foundation/chart
+    path: system/foundation/chart
     helm:
       releaseName: foundation
   syncPolicy:
