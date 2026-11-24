@@ -45,6 +45,18 @@ spec:
                   gateway.envoyproxy.io/owning-gateway-namespace: {{ .Values.namespace }}
               matchLabelKeys:
                 - pod-template-hash
+            # externalTrafficPolicy: Local이라 노드는 자기 노드의 Envoy에만 보낸다.
+            # ALB는 노드마다 같은 양을 보내므로, 노드마다 Envoy 수를 맞춰야 Envoy끼리 부하가 고르다.
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: DoNotSchedule
+              nodeTaintsPolicy: Honor
+              labelSelector:
+                matchLabels:
+                  gateway.envoyproxy.io/owning-gateway-name: {{ .Values.gatewayName }}
+                  gateway.envoyproxy.io/owning-gateway-namespace: {{ .Values.namespace }}
+              matchLabelKeys:
+                - pod-template-hash
         container:
           resources:
             requests:
@@ -55,7 +67,11 @@ spec:
               memory: {{ .Values.envoy.resources.limits.memory }}
       envoyService:
         type: NodePort
-        externalTrafficPolicy: Cluster
+        # Local: 노드로 들어온 요청을 그 노드의 Envoy만 받는다(다른 노드로 넘기지 않음).
+        # Cluster였을 때는 AZ 장애 중 살아 있는 노드의 kube-proxy가 죽은 AZ의 Envoy로 요청을 넘겨,
+        # 노드가 NotReady가 될 때까지(약 50초) 요청이 멈췄다(2026-11-24 2c 훈련).
+        # Local이면 Envoy가 없는 노드는 NodePort 연결이 실패해 ALB 상태 검사(10초×2)에서 빠진다.
+        externalTrafficPolicy: Local
         # Service의 port를 merge key로 사용해 자동 생성되는 targetPort는 보존한다.
         patch:
           type: StrategicMerge
