@@ -115,17 +115,21 @@ probes:
     timeoutSeconds: 3
     failureThreshold: 60
   liveness:
-    # 프로세스 복구가 필요한 상황만 실패시키는 생존 확인 경로.
-    path: "/actuator/health"
+    # tcp: 프로세스가 8080을 열고 있는지만 본다(DB·Redis 상태와 무관). http: path로 확인.
+    # /actuator/health는 DB·Redis를 포함해서, 2026-11-24 2b 장애(RDS failover 1분) 때 liveness가 실패해
+    # backend 8개가 모두 재시작했고 정상화가 4분으로 늘었다. DB 장애는 readiness로만 반영한다.
+    # /actuator/health/liveness(앱 내부 상태만)는 SecurityConfig가 /actuator/health만 허용해 지금은 401이다.
+    # backend가 /actuator/health/**를 허용하면 type: http, path: /actuator/health/liveness로 바꾼다.
+    type: "tcp"
+    path: "/actuator/health/liveness"
     port: 8080
     initialDelaySeconds: 0
     periodSeconds: 10
-    # health가 DB를 확인한다. 노드 CPU가 몰리거나 DB가 잠깐 느려지면 1초(기본값)에는 정상 파드도 실패해서
-    # 여러 파드가 동시에 재시작하는 연쇄가 생긴다(2026-11-20 이전 작업 중 503 약 2분). 타임아웃과 허용 횟수를 늘린다.
     timeoutSeconds: 5
     failureThreshold: 6
   readiness:
-    # 트래픽을 받을 수 있는지 판단하는 준비 확인 경로.
+    # 트래픽을 받을 수 있는지 판단하는 준비 확인 경로. DB·Redis를 포함한 /actuator/health를 그대로 쓴다.
+    # DB가 끊기면 Pod를 재시작하지 않고 트래픽에서만 빼고(Envoy가 바로 503), DB가 돌아오면 다시 넣는다.
     path: "/actuator/health"
     port: 8080
     initialDelaySeconds: 0

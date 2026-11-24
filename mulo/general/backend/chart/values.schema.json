@@ -233,6 +233,13 @@
             "failureThreshold": {
               "type": "integer",
               "minimum": 1
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "http",
+                "tcp"
+              ]
             }
           },
           "required": [

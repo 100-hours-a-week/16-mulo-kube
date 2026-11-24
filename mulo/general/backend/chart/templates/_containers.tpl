@@ -46,9 +46,15 @@ scheduling: 이 Pod에서 @Scheduled 예약 작업을 돌릴지("true"/"false").
     failureThreshold: {{ $r.Values.probes.startup.failureThreshold }}
     timeoutSeconds: {{ $r.Values.probes.startup.timeoutSeconds }}
   livenessProbe:
+    {{- if eq ($r.Values.probes.liveness.type | default "http") "tcp" }}
+    # 프로세스가 포트를 열고 있는지만 본다. DB·Redis가 끊겨도 앱을 재시작하지 않는다.
+    tcpSocket:
+      port: {{ $r.Values.probes.liveness.port }}
+    {{- else }}
     httpGet:
       path: {{ $r.Values.probes.liveness.path }}
       port: {{ $r.Values.probes.liveness.port }}
+    {{- end }}
     initialDelaySeconds: {{ $r.Values.probes.liveness.initialDelaySeconds }}
     periodSeconds: {{ $r.Values.probes.liveness.periodSeconds }}
     failureThreshold: {{ $r.Values.probes.liveness.failureThreshold }}
