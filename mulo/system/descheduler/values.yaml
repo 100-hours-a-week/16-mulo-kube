@@ -1,0 +1,47 @@
+# AZ 장애가 지나간 뒤 한쪽 AZ로 몰린 Pod를 다시 나눈다.
+# topologySpreadConstraints는 Pod를 배치할 때만 지켜진다. 장애 중 남은 AZ로 옮겨진 Pod는
+# 그 AZ가 돌아와도 그대로 남으므로, descheduler가 규칙을 어긴 Pod를 내보내 스케줄러가 다시 나누게 한다.
+kind: Deployment
+replicas: 1
+# 2분마다 확인한다.
+deschedulingInterval: 2m
+
+nodeSelector:
+  workload: "system"
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "system"
+    effect: "NoSchedule"
+
+deschedulerPolicy:
+  # 한 번에 너무 많이 내보내지 않는다. PDB도 지킨다.
+  maxNoOfPodsToEvictPerNamespace: 2
+  profiles:
+    - name: rebalance-zones
+      pluginConfig:
+        - name: DefaultEvictor
+          args:
+            # 다른 노드에 들어갈 자리가 있을 때만 내보낸다.
+            nodeFit: true
+            podProtections:
+              defaultDisabled:
+                - "PodsWithLocalStorage"
+              extraEnabled:
+                - "PodsWithPVC"
+        - name: RemovePodsViolatingTopologySpreadConstraint
+          args:
+            # 앱의 AZ 분산 규칙(DoNotSchedule)만 본다.
+            constraints:
+              - DoNotSchedule
+            namespaces:
+              include:
+                - "frontend"
+                - "backend"
+                - "chat"
+                - "ai-api"
+                - "envoy-gateway-system"
+      plugins:
+        balance:
+          enabled:
+            - RemovePodsViolatingTopologySpreadConstraint

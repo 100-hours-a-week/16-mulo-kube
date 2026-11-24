@@ -1,0 +1,40 @@
+# Gateway 전체(모든 HTTPRoute)에 적용하는 장애 대응 설정.
+# AZ 장애처럼 Pod가 응답 없이 멈추면, 노드가 NotReady로 바뀌어 엔드포인트에서 빠지기까지 1~2분이 걸린다.
+# 그동안 Envoy가 죽은 Pod로 계속 보내지 않도록 연결을 빨리 포기하고, 실패한 Pod를 잠시 빼고, 다른 Pod로 재시도한다.
+# 주의: HTTPRoute에 따로 붙은 BackendTrafficPolicy(예: grafana)가 있으면 그 Route에는 이 설정 대신 그쪽이 적용된다.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: {{ .Values.gatewayName }}-resilience
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.gatewayName }}
+  timeout:
+    tcp:
+      # 같은 VPC 안 Pod 연결은 수 ms면 된다. 응답 없는 Pod에 오래 매달리지 않는다.
+      connectTimeout: {{ .Values.resilience.connectTimeout | quote }}
+  retry:
+    numRetries: {{ .Values.resilience.retry.numRetries }}
+    retryOn:
+      # 요청이 백엔드에 전달되기 전에 실패한 경우만 재시도한다. POST 같은 쓰기가 두 번 처리되지 않는다.
+      triggers:
+        - connect-failure
+        - reset-before-request
+        - refused-stream
+    perRetry:
+      backOff:
+        baseInterval: {{ .Values.resilience.retry.baseInterval | quote }}
+        maxInterval: {{ .Values.resilience.retry.maxInterval | quote }}
+  healthCheck:
+    passive:
+      # 연결 실패(로컬 원인)를 응답 5xx와 따로 센다. 연결 실패가 연속되면 그 Pod를 잠시 뺀다.
+      splitExternalLocalOriginErrors: true
+      consecutiveLocalOriginFailures: {{ .Values.resilience.passive.consecutiveLocalOriginFailures }}
+      consecutiveGatewayErrors: {{ .Values.resilience.passive.consecutiveGatewayErrors }}
+      interval: {{ .Values.resilience.passive.interval | quote }}
+      baseEjectionTime: {{ .Values.resilience.passive.baseEjectionTime | quote }}
+      # 한 번에 절반까지만 뺀다. 2개 AZ 중 하나가 죽어도 나머지로 보낼 수 있고, 전부 빠지는 일은 막는다.
+      maxEjectionPercent: {{ .Values.resilience.passive.maxEjectionPercent }}
