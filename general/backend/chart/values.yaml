@@ -69,7 +69,11 @@ configMap:
     JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
     SPRING_PROFILES_ACTIVE: "prod,popular-cache"
     SERVER_PORT: "8080"
-    DB_URL: "jdbc:mysql://mulo-v3-prod-api.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Seoul&sessionVariables=time_zone='Asia/Seoul'"
+    # connectTimeout(ms): 새 연결이 이 시간 안에 안 맺어지면 포기. 기본 0(무제한)이면 OS 한도 약 127초까지 매달린다.
+    # socketTimeout(ms): 맺은 연결에서 DB로부터 아무 데이터도 이 시간 동안 오지 않으면 포기. 기본 0(무제한)이면 OS 한도 약 15분.
+    # 2026-11-24 2b 장애 2차 훈련에서 옛 primary로 열린 연결이 15분 50초 매달려 장애가 16분 이어졌다.
+    # 30초는 관측된 최대 연결 사용 시간(평소 0.1초, 380 RPS 부하 4.1초, 장애 중 6.5초)보다 충분히 길고 Envoy 요청 timeout(55초)보다 짧다.
+    DB_URL: "jdbc:mysql://mulo-v3-prod-api.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:3306/mulo?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Seoul&sessionVariables=time_zone='Asia/Seoul'&connectTimeout=5000&socketTimeout=30000"
     DB_USERNAME: "mulo_admin"
     REDIS_HOST: "redis.redis.svc.cluster.local"
     REDIS_PORT: "6379"
@@ -84,7 +88,8 @@ configMap:
     MULO_DAILY_SONG_SCHEDULER_ENABLED: "false"
     # AI DB 읽기 전용 계정. 비밀번호는 SSM /mulo-v3-prod/db/ai/reader-password → Vault MULO_AI_DB_PASSWORD.
     MULO_AI_DB_ENABLED: "true"
-    MULO_AI_DB_URL: "jdbc:postgresql://mulo-v3-prod-ai.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:5432/muro_ai?sslmode=require"
+    # PostgreSQL 드라이버는 timeout 단위가 초다(connectTimeout 기본 10초, socketTimeout 기본 0=무제한).
+    MULO_AI_DB_URL: "jdbc:postgresql://mulo-v3-prod-ai.c9acwe6m8g1e.ap-northeast-2.rds.amazonaws.com:5432/muro_ai?sslmode=require&connectTimeout=5&socketTimeout=30"
     MULO_AI_DB_USERNAME: "mulo_be_reader"
     MULO_GROUP_CHAT_ENABLED: "true"
     MULO_GROUP_CHAT_START_DATE: "2026-10-22"
